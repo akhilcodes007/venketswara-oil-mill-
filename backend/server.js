@@ -41,10 +41,7 @@ const io = new SocketServer(server, {
 // Bind Socket events
 initSocket(io);
 
-// Connect to Database and Seed data
-connectDB().then(() => {
-  seedDB();
-});
+// Database connection initialized below before starting server listener
 
 // Middleware stack
 app.use(helmet());
@@ -83,6 +80,11 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`[Server] Express server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`);
+
+// Resolve database first, seed initial values, then boot Express listener
+connectDB().then(() => {
+  seedDB();
+  server.listen(PORT, () => {
+    console.log(`[Server] Express server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`);
+  });
 });
