@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: svem-backend
+    env: node
+    region: oregon
+    plan: free
+    
+    # Start command
+    startCommand: cd backend && npm install && npm start
+    
+    # Environment variables (set in Render dashboard)
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: MONGO_URI
+        scope: secret
+      - key: JWT_SECRET
+        scope: secret
+      - key: JWT_REFRESH_SECRET
+        scope: secret
+      - key: RAZORPAY_KEY_ID
+        scope: secret
+      - key: RAZORPAY_KEY_SECRET
+        scope: secret
+      - key: CLOUDINARY_CLOUD_NAME
+        scope: secret
+      - key: CLOUDINARY_API_KEY
+        scope: secret
+      - key: CLOUDINARY_API_SECRET
+        scope: secret
+      - key: SMTP_HOST
+        value: smtp.ethereal.email
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        scope: secret
+      - key: SMTP_PASS
+        scope: secret
+      - key: SMTP_FROM
+        value: "Sri Venkateshwara Oil Mill <noreply@svem.com>"
+      - key: ADMIN_EMAIL
+        value: shreedhana2005@gmail.com
+    
+    # Health check
+    healthCheckPath: /health
