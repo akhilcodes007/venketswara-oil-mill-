@@ -1,8 +1,8 @@
 import { io } from "socket.io-client";
 
-// API configuration
-const API_URL = "http://localhost:5000/api";
-const SOCKET_URL = "http://localhost:5000";
+// API configuration - falls back to localhost for development, reads env in production
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 
 let authListeners: Array<(event: string, session: any) => void> = [];
 
