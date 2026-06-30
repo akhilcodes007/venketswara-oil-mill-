@@ -1,36 +1,56 @@
-import Wishlist from "../models/Wishlist.js";
+import supabase from '../config/supabase.js';
 
-/**
- * Gets a user's persistent wishlist.
- */
 export async function getWishlist(req, res) {
   try {
-    const wishlist = await Wishlist.findOne({ user_id: req.user._id.toString() });
-    if (!wishlist) {
-      return res.status(200).json({ items: [] });
-    }
-    res.status(200).json(wishlist);
+    const { data, error } = await supabase
+      .from('wishlist_items')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.status(200).json(data || []);
   } catch (error) {
-    console.error("[Wishlist Controller] Get Wishlist Error:", error);
-    res.status(500).json({ message: "Server error fetching wishlist" });
+    console.error('[Wishlist] getWishlist error:', error);
+    res.status(500).json({ message: 'Error fetching wishlist' });
   }
 }
 
-/**
- * Saves/Syncs the wishlist to the database.
- */
-export async function saveWishlist(req, res) {
-  const { items } = req.body;
+export async function addToWishlist(req, res) {
+  const { product_id, size } = req.body;
+  const userId = req.user.id;
 
   try {
-    const updated = await Wishlist.findOneAndUpdate(
-      { user_id: req.user._id.toString() },
-      { $set: { items } },
-      { new: true, upsert: true }
-    );
-    res.status(200).json(updated);
+    const { data, error } = await supabase
+      .from('wishlist_items')
+      .upsert({ user_id: userId, product_id, size }, { onConflict: 'user_id,product_id,size' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(200).json(data);
   } catch (error) {
-    console.error("[Wishlist Controller] Save Wishlist Error:", error);
-    res.status(500).json({ message: "Server error syncing wishlist" });
+    console.error('[Wishlist] addToWishlist error:', error);
+    res.status(500).json({ message: 'Error adding to wishlist' });
+  }
+}
+
+export async function removeFromWishlist(req, res) {
+  const { productId, size } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const { error } = await supabase
+      .from('wishlist_items')
+      .delete()
+      .eq('user_id', userId)
+      .eq('product_id', productId)
+      .eq('size', size);
+
+    if (error) throw error;
+    res.status(200).json({ message: 'Removed from wishlist' });
+  } catch (error) {
+    console.error('[Wishlist] removeFromWishlist error:', error);
+    res.status(500).json({ message: 'Error removing from wishlist' });
   }
 }

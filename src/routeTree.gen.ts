@@ -17,8 +17,14 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AddressesRouteImport } from './routes/addresses'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as InvoiceOrderIdRouteImport } from './routes/invoice/$orderId'
+import { Route as AdminProductsRouteImport } from './routes/admin/products'
+import { Route as AdminCmsRouteImport } from './routes/admin/cms'
+import { Route as OrderOrderIdTrackingRouteImport } from './routes/order/$orderId.tracking'
 
 const WishlistRoute = WishlistRouteImport.update({
   id: '/wishlist',
@@ -60,6 +66,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AddressesRoute = AddressesRouteImport.update({
   id: '/addresses',
   path: '/addresses',
@@ -70,10 +81,36 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const InvoiceOrderIdRoute = InvoiceOrderIdRouteImport.update({
+  id: '/invoice/$orderId',
+  path: '/invoice/$orderId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCmsRoute = AdminCmsRouteImport.update({
+  id: '/cms',
+  path: '/cms',
+  getParentRoute: () => AdminRoute,
+} as any)
+const OrderOrderIdTrackingRoute = OrderOrderIdTrackingRouteImport.update({
+  id: '/order/$orderId/tracking',
+  path: '/order/$orderId/tracking',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/addresses': typeof AddressesRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
   '/checkout': typeof CheckoutRoute
   '/dashboard': typeof DashboardRoute
@@ -82,6 +119,11 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
+  '/admin/cms': typeof AdminCmsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/invoice/$orderId': typeof InvoiceOrderIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/order/$orderId/tracking': typeof OrderOrderIdTrackingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -94,11 +136,17 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
+  '/admin/cms': typeof AdminCmsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/invoice/$orderId': typeof InvoiceOrderIdRoute
+  '/admin': typeof AdminIndexRoute
+  '/order/$orderId/tracking': typeof OrderOrderIdTrackingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/addresses': typeof AddressesRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
   '/checkout': typeof CheckoutRoute
   '/dashboard': typeof DashboardRoute
@@ -107,12 +155,18 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
+  '/admin/cms': typeof AdminCmsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/invoice/$orderId': typeof InvoiceOrderIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/order/$orderId/tracking': typeof OrderOrderIdTrackingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/addresses'
+    | '/admin'
     | '/auth'
     | '/checkout'
     | '/dashboard'
@@ -121,6 +175,11 @@ export interface FileRouteTypes {
     | '/profile'
     | '/shop'
     | '/wishlist'
+    | '/admin/cms'
+    | '/admin/products'
+    | '/invoice/$orderId'
+    | '/admin/'
+    | '/order/$orderId/tracking'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,10 +192,16 @@ export interface FileRouteTypes {
     | '/profile'
     | '/shop'
     | '/wishlist'
+    | '/admin/cms'
+    | '/admin/products'
+    | '/invoice/$orderId'
+    | '/admin'
+    | '/order/$orderId/tracking'
   id:
     | '__root__'
     | '/'
     | '/addresses'
+    | '/admin'
     | '/auth'
     | '/checkout'
     | '/dashboard'
@@ -145,11 +210,17 @@ export interface FileRouteTypes {
     | '/profile'
     | '/shop'
     | '/wishlist'
+    | '/admin/cms'
+    | '/admin/products'
+    | '/invoice/$orderId'
+    | '/admin/'
+    | '/order/$orderId/tracking'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AddressesRoute: typeof AddressesRoute
+  AdminRoute: typeof AdminRouteWithChildren
   AuthRoute: typeof AuthRoute
   CheckoutRoute: typeof CheckoutRoute
   DashboardRoute: typeof DashboardRoute
@@ -158,6 +229,8 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   ShopRoute: typeof ShopRoute
   WishlistRoute: typeof WishlistRoute
+  InvoiceOrderIdRoute: typeof InvoiceOrderIdRoute
+  OrderOrderIdTrackingRoute: typeof OrderOrderIdTrackingRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -218,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/addresses': {
       id: '/addresses'
       path: '/addresses'
@@ -232,12 +312,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/invoice/$orderId': {
+      id: '/invoice/$orderId'
+      path: '/invoice/$orderId'
+      fullPath: '/invoice/$orderId'
+      preLoaderRoute: typeof InvoiceOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/cms': {
+      id: '/admin/cms'
+      path: '/cms'
+      fullPath: '/admin/cms'
+      preLoaderRoute: typeof AdminCmsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/order/$orderId/tracking': {
+      id: '/order/$orderId/tracking'
+      path: '/order/$orderId/tracking'
+      fullPath: '/order/$orderId/tracking'
+      preLoaderRoute: typeof OrderOrderIdTrackingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
+
+interface AdminRouteChildren {
+  AdminCmsRoute: typeof AdminCmsRoute
+  AdminProductsRoute: typeof AdminProductsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminCmsRoute: AdminCmsRoute,
+  AdminProductsRoute: AdminProductsRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AddressesRoute: AddressesRoute,
+  AdminRoute: AdminRouteWithChildren,
   AuthRoute: AuthRoute,
   CheckoutRoute: CheckoutRoute,
   DashboardRoute: DashboardRoute,
@@ -246,6 +376,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   ShopRoute: ShopRoute,
   WishlistRoute: WishlistRoute,
+  InvoiceOrderIdRoute: InvoiceOrderIdRoute,
+  OrderOrderIdTrackingRoute: OrderOrderIdTrackingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

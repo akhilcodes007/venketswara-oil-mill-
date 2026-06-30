@@ -1,193 +1,192 @@
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
-import User from "../models/User.js";
-import Otp from "../models/Otp.js";
-import { sendOtpEmail, sendPasswordResetEmail } from "../utils/emailService.js";
-
-// Helper: Generate Access Token
-function generateAccessToken(userId) {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET || "super_secret_access_token_key_123!", {
-    expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "15m",
-  });
-}
-
-// Helper: Generate Refresh Token
-function generateRefreshToken(userId) {
-  return jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET || "super_secret_refresh_token_key_456!", {
-    expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "7d",
-  });
-}
+import supabase from '../config/supabase.js';
+import { sendOtpEmail, sendPasswordResetEmail } from '../services/emailService.js';
 
 /**
- * Sends a 6-digit OTP code to user's email.
+ * @swagger
+ * /api/auth/send-otp:
+ *   post:
+ *     summary: Send OTP email for login
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
  */
 export async function sendOtp(req, res) {
   const { email } = req.body;
   const cleanEmail = email.trim().toLowerCase();
 
   try {
-    // Generate a 6-digit random code
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Trigger Supabase OTP email
+    const { error } = await supabase.auth.signInWithOtp({
+      email: cleanEmail,
+      options: { shouldCreateUser: true },
+    });
 
-    // Expire in 5 minutes
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-    // Delete existing OTP for this email
-    await Otp.deleteMany({ email: cleanEmail });
-
-    // Store new OTP
-    await Otp.create({ email: cleanEmail, code: otpCode, expiresAt });
-
-    // Send email
-    const emailResult = await sendOtpEmail(cleanEmail, otpCode);
-
-    if (!emailResult.success) {
-      return res.status(500).json({ message: "Failed to send verification email. Try again later." });
+    if (error) {
+      console.error('[Auth] Send OTP error:', error);
+      return res.status(500).json({ message: error.message });
     }
 
-    res.status(200).json({ message: "Verification code sent successfully" });
+    // Also ensure the user has a role
+    const adminEmail = (process.env.ADMIN_EMAIL || 'shreedhana2005@gmail.com').toLowerCase();
+
+    res.status(200).json({ message: 'Verification code sent to your email' });
   } catch (error) {
-    console.error("[Auth Controller] Send OTP Error:", error);
-    res.status(500).json({ message: "Server error generating verification code" });
+    console.error('[Auth] sendOtp error:', error);
+    res.status(500).json({ message: 'Server error sending OTP' });
   }
 }
 
 /**
- * Verifies OTP and registers or logs in user.
+ * @swagger
+ * /api/auth/verify-otp:
+ *   post:
+ *     summary: Verify OTP and authenticate
+ *     tags: [Auth]
  */
 export async function verifyOtp(req, res) {
   const { email, code } = req.body;
   const cleanEmail = email.trim().toLowerCase();
-  const cleanCode = code.trim();
 
   try {
-    // Find valid OTP record
-    const otpRecord = await Otp.findOne({ email: cleanEmail, code: cleanCode });
-
-    if (!otpRecord) {
-      return res.status(400).json({ message: "Invalid or expired verification code" });
-    }
-
-    // OTP is valid. Remove it from the database.
-    await Otp.deleteOne({ _id: otpRecord._id });
-
-    // Find or create User
-    let user = await User.findOne({ email: cleanEmail });
-    
-    if (!user) {
-      // Determine role: default is customer. shreedhana2005@gmail.com becomes admin.
-      const adminEmail = process.env.ADMIN_EMAIL || "shreedhana2005@gmail.com";
-      const role = cleanEmail === adminEmail.toLowerCase() ? "admin" : "customer";
-      
-      user = await User.create({
-        email: cleanEmail,
-        role: role,
-      });
-      console.log(`[Auth Controller] Registered new user ${cleanEmail} with role: ${role}`);
-    }
-
-    if (user.isBlocked) {
-      return res.status(403).json({ message: "Your account is blocked. Contact support." });
-    }
-
-    // Issue tokens
-    const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
-
-    // Express can also place refresh tokens in HTTPOnly cookies for security
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: cleanEmail,
+      token: code.trim(),
+      type: 'email',
     });
 
+    if (error || !data?.session) {
+      return res.status(400).json({ message: error?.message || 'Invalid or expired verification code' });
+    }
+
+    const user = data.session.user;
+    const adminEmail = (process.env.ADMIN_EMAIL || 'shreedhana2005@gmail.com').toLowerCase();
+
+    // Ensure user has a role in user_roles table
+    const { data: existingRole } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!existingRole) {
+      const role = cleanEmail === adminEmail ? 'admin' : 'customer';
+      await supabase.from('user_roles').insert({ user_id: user.id, role });
+    }
+
     res.status(200).json({
-      message: "Signed in successfully",
-      accessToken,
-      refreshToken,
+      message: 'Signed in successfully',
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
-        role: user.role,
+        role: existingRole?.role || (cleanEmail === adminEmail ? 'admin' : 'customer'),
       },
     });
   } catch (error) {
-    console.error("[Auth Controller] Verify OTP Error:", error);
-    res.status(500).json({ message: "Server error during verification" });
+    console.error('[Auth] verifyOtp error:', error);
+    res.status(500).json({ message: 'Server error during verification' });
   }
 }
 
 /**
- * Renews access token using valid refresh token.
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Refresh access token
+ *     tags: [Auth]
  */
 export async function refreshAccessToken(req, res) {
-  const token = req.body.refreshToken || req.cookies.refreshToken;
+  const refreshToken = req.body.refreshToken || req.cookies.refreshToken;
 
-  if (!token) {
-    return res.status(401).json({ message: "Refresh token is required" });
+  if (!refreshToken) {
+    return res.status(401).json({ message: 'Refresh token is required' });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET || "super_secret_refresh_token_key_456!");
-    const user = await User.findById(decoded.id);
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
 
-    if (!user || user.isBlocked) {
-      return res.status(401).json({ message: "Unauthorized token renew" });
+    if (error || !data?.session) {
+      return res.status(401).json({ message: 'Invalid or expired refresh token' });
     }
 
-    const accessToken = generateAccessToken(user._id);
-    res.status(200).json({ accessToken });
+    res.status(200).json({ accessToken: data.session.access_token });
   } catch (error) {
-    console.error("[Auth Controller] Refresh Token Error:", error.message);
-    res.status(401).json({ message: "Invalid or expired refresh token" });
+    console.error('[Auth] refresh error:', error);
+    res.status(401).json({ message: 'Token refresh failed' });
   }
 }
 
 /**
- * Returns current user's profile details.
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Get current user profile
+ *     tags: [Auth]
+ *     security:
+ *       - BearerAuth: []
  */
 export async function getMe(req, res) {
   res.status(200).json({
-    id: req.user._id,
+    id: req.user.id,
     email: req.user.email,
     role: req.user.role,
   });
 }
 
 /**
- * Handles password-reset request links.
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Send password reset email
+ *     tags: [Auth]
  */
 export async function forgotPassword(req, res) {
   const { email } = req.body;
   const cleanEmail = email.trim().toLowerCase();
 
   try {
-    const user = await User.findOne({ email: cleanEmail });
-    if (!user) {
-      // Return 200 for security reasons (don't leak user list)
-      return res.status(200).json({ message: "If the account exists, a reset email has been sent." });
-    }
-
-    // Generate brief reset token (1 hour)
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || "super_secret_access_token_key_123!", {
-      expiresIn: "1h",
+    // Supabase built-in password reset
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: `${frontendUrl}/reset-password`,
     });
 
-    const resetLink = `${req.protocol}://${req.get("host")}/reset-password?token=${token}`;
-    await sendPasswordResetEmail(user.email, resetLink);
-
-    res.status(200).json({ message: "If the account exists, a reset email has been sent." });
+    // Always return 200 for security (don't leak user existence)
+    res.status(200).json({ message: 'If the account exists, a reset email has been sent.' });
   } catch (error) {
-    console.error("[Auth Controller] Forgot Password Error:", error);
-    res.status(500).json({ message: "Server error handling password reset request" });
+    console.error('[Auth] forgotPassword error:', error);
+    res.status(200).json({ message: 'If the account exists, a reset email has been sent.' });
   }
 }
 
 /**
- * Logs out user by clearing cookies.
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Sign out user
+ *     tags: [Auth]
+ *     security:
+ *       - BearerAuth: []
  */
 export async function logout(req, res) {
-  res.clearCookie("refreshToken");
-  res.status(200).json({ message: "Signed out successfully" });
+  try {
+    await supabase.auth.signOut();
+    res.clearCookie('refreshToken');
+    res.status(200).json({ message: 'Signed out successfully' });
+  } catch (error) {
+    res.status(200).json({ message: 'Signed out' });
+  }
 }

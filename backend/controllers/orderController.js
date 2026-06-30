@@ -1,310 +1,322 @@
-import Order from "../models/Order.js";
-import Product from "../models/Product.js";
-import Invoice from "../models/Invoice.js";
-import DeliveryTracking from "../models/DeliveryTracking.js";
-import Notification from "../models/Notification.js";
-import { generateInvoicePdf } from "../utils/pdfGenerator.js";
-import { sendInvoiceEmail } from "../utils/emailService.js";
-import { sendSmsNotification, sendWhatsAppNotification } from "../utils/smsService.js";
-import { emitNotification } from "../utils/socket.js";
+import supabase from '../config/supabase.js';
+import { generateInvoicePdf } from '../services/pdfService.js';
+import { sendInvoiceEmail, sendOrderStatusEmail } from '../services/emailService.js';
+import { sendSmsNotification, sendWhatsAppNotification } from '../services/smsService.js';
+import { emitNotification } from '../sockets/index.js';
 
-/**
- * Places a new order, validates stock, updates inventory, generates invoice and triggers alerts.
- */
 export async function createOrder(req, res) {
   const {
-    customer_name,
-    phone,
-    email,
-    address,
-    items,
-    subtotal,
-    gst,
-    shipping,
-    discount,
-    total,
-    coupon,
-    payment_method,
+    customer_name, phone, email, address,
+    items, subtotal, gst, shipping, discount, total,
+    coupon, payment_method,
   } = req.body;
 
-  const userId = req.user ? req.user._id.toString() : null;
-  const userEmail = req.user ? req.user.email : email;
+  const userId = req.user?.id || null;
+  const userEmail = req.user?.email || email;
 
   try {
-    // 1. Inventory Validation & Stock Reservation
-    for (const item of items) {
-      const dbProduct = await Product.findOne({ id: item.id });
-      if (!dbProduct) {
-        return res.status(404).json({ message: `Product ${item.name} not found` });
-      }
+    // 1. Create order in Supabase
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        user_id: userId,
+        customer_name,
+        phone,
+        email: userEmail,
+        address,
+        items,
+        subtotal,
+        gst,
+        shipping,
+        discount: discount || 0,
+        total,
+        coupon: coupon || null,
+        payment_method,
+        status: 'confirmed',
+      })
+      .select()
+      .single();
 
-      // If product tracks stock and is out
-      if (dbProduct.stock !== undefined && dbProduct.stock < item.qty) {
-        return res.status(400).json({
-          message: `Insufficient stock for ${item.name}. Only ${dbProduct.stock} unit(s) remaining.`,
-        });
+    if (orderError) throw orderError;
+
+    // 2. Deduct stock for each item and check low stock
+    for (const item of items) {
+      const { data: product } = await supabase
+        .from('products')
+        .select('stock, name')
+        .eq('id', item.id)
+        .single();
+
+      if (product && product.stock !== null) {
+        const newStock = Math.max(0, product.stock - item.qty);
+        await supabase
+          .from('products')
+          .update({ stock: newStock })
+          .eq('id', item.id);
+
+        // Low stock alert (≤5 units)
+        if (newStock <= 5) {
+          await supabase.from('notifications').insert({
+            message: `Low stock: Only ${newStock} left for ${product.name}`,
+            type: 'low_stock',
+          });
+          emitNotification('admin', 'low_stock', {
+            productId: item.id,
+            name: product.name,
+            stock: newStock,
+          });
+        }
       }
     }
 
-    // 2. Create Order in database
-    // Default online payments to "pending" status, Cash to "completed" or "pending"
-    const paymentStatus = payment_method === "Cash on Delivery" ? "pending" : "pending";
-
-    const order = await Order.create({
-      user_id: userId,
-      customer_name,
-      phone,
-      email: userEmail,
-      address,
-      items,
-      subtotal,
-      gst,
-      shipping,
-      discount,
-      total,
-      coupon,
-      payment_method,
-      payment_status: paymentStatus,
-      status: "confirmed",
-    });
-
-    // 3. Deduct stock and check for low stock alerts
-    for (const item of items) {
-      const updatedProduct = await Product.findOneAndUpdate(
-        { id: item.id },
-        { $inc: { stock: -item.qty } },
-        { new: true }
-      );
-
-      // Low stock warning (e.g. less than 5 units left)
-      if (updatedProduct && updatedProduct.stock <= 5) {
-        const message = `Low stock alert: Only ${updatedProduct.stock} left for ${updatedProduct.name}`;
-        
-        // Save alert notification
-        await Notification.create({
-          message,
-          type: "low_stock",
-        });
-
-        // Socket.io emit to admin
-        emitNotification("admin", "low_stock", {
-          productId: updatedProduct.id,
-          name: updatedProduct.name,
-          stock: updatedProduct.stock,
-        });
-      }
-    }
-
-    // 4. Generate unique Invoice Number and PDF
-    const randomInvoiceSuffix = Math.floor(1000 + Math.random() * 9000).toString();
-    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${randomInvoiceSuffix}`;
-    
+    // 3. Generate invoice number and PDF
+    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
     const pdfBuffer = await generateInvoicePdf(order, invoiceNumber);
 
-    // Save Invoice logging in DB
-    await Invoice.create({
-      orderId: order._id,
-      invoiceNumber,
+    // 4. Save invoice record
+    const { data: invoice } = await supabase
+      .from('invoices')
+      .insert({ order_id: order.id, invoice_number: invoiceNumber })
+      .select()
+      .single();
+
+    // 5. Create delivery tracking
+    const estimatedDelivery = new Date();
+    estimatedDelivery.setDate(estimatedDelivery.getDate() + 3);
+
+    await supabase.from('delivery_tracking').insert({
+      order_id: order.id,
+      status: 'confirmed',
+      current_location: 'Mill Warehouse',
+      estimated_delivery_date: estimatedDelivery.toISOString(),
+      history: [{ status: 'confirmed', location: 'Mill Warehouse', timestamp: new Date().toISOString() }],
     });
 
-    // 5. Initialize Delivery Tracking
-    const trackingHistory = [{ status: "confirmed", location: "Mill Warehouse", timestamp: new Date() }];
-    
-    // Add estimated delivery date: 3 days from now
-    const estimatedDeliveryDate = new Date();
-    estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 3);
-
-    const tracking = await DeliveryTracking.create({
-      orderId: order._id,
-      status: "confirmed",
-      estimatedDeliveryDate,
-      history: trackingHistory,
-    });
-
-    // 6. Send Invoice Email (Nodemailer) with PDF attachment
+    // 6. Email invoice (non-blocking)
     if (userEmail) {
-      // Async (non-blocking)
       sendInvoiceEmail(userEmail, order, pdfBuffer).catch((err) =>
-        console.error("[Order Controller] Error emailing invoice:", err)
+        console.error('[Order] Invoice email error:', err.message)
       );
     }
 
-    // 7. SMS/WhatsApp Notification to customer
-    const textMsg = `Order Confirmed! Your order #${order._id.toString().slice(0, 8).toUpperCase()} for ₹${total} at Sri Venkateshwara Oil Mill is confirmed. Thank you!`;
-    sendSmsNotification(phone, textMsg).catch((err) =>
-      console.error("[Order Controller] SMS Error:", err)
-    );
-    sendWhatsAppNotification(phone, textMsg).catch((err) =>
-      console.error("[Order Controller] WhatsApp Error:", err)
-    );
+    // 7. SMS notification (non-blocking)
+    const smsText = `Order Confirmed! #${order.id.slice(0, 8).toUpperCase()} for ₹${total}. Thank you - Sri Venkateshwara Oil Mill`;
+    sendSmsNotification(phone, smsText).catch(() => {});
+    sendWhatsAppNotification(phone, smsText).catch(() => {});
 
-    // 8. Log Admin Notification & emit Socket event
-    const adminMsg = `New order placed: Order #${order._id.toString().slice(0, 8).toUpperCase()} by ${customer_name} of ₹${total}`;
-    await Notification.create({
-      message: adminMsg,
-      type: "new_order",
+    // 8. Admin notification via Socket.io
+    await supabase.from('notifications').insert({
+      message: `New order #${order.id.slice(0, 8).toUpperCase()} from ${customer_name} - ₹${total}`,
+      type: 'new_order',
     });
 
-    // Emit live to Socket.io Admin room
-    emitNotification("admin", "new_order", {
-      orderId: order._id,
+    emitNotification('admin', 'new_order', {
+      orderId: order.id,
       customer_name,
       total,
       payment_method,
       itemsCount: items.length,
-      created_at: order.createdAt,
+      created_at: order.created_at,
     });
 
     res.status(201).json({
-      message: "Order placed successfully",
-      orderId: order._id,
+      message: 'Order placed successfully',
+      orderId: order.id,
       invoiceNumber,
-      trackingId: tracking._id,
     });
   } catch (error) {
-    console.error("[Order Controller] Place Order Error:", error);
-    res.status(500).json({ message: "Server error placing order" });
+    console.error('[Order] createOrder error:', error);
+    res.status(500).json({ message: 'Server error placing order' });
   }
 }
 
-/**
- * Retrieves orders. Users get their own; admins get all.
- */
 export async function getOrders(req, res) {
   try {
-    let orders;
-    if (req.user.role === "admin") {
-      orders = await Order.find().sort({ createdAt: -1 });
-    } else {
-      orders = await Order.find({ user_id: req.user._id.toString() }).sort({ createdAt: -1 });
+    let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
+
+    // Customers see only their orders; admin sees all
+    if (req.user.role !== 'admin') {
+      query = query.eq('user_id', req.user.id);
     }
-    res.status(200).json(orders);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    res.status(200).json(data || []);
   } catch (error) {
-    console.error("[Order Controller] Get Orders Error:", error);
-    res.status(500).json({ message: "Server error fetching orders" });
+    console.error('[Order] getOrders error:', error);
+    res.status(500).json({ message: 'Error fetching orders' });
   }
 }
 
-/**
- * Admin: Updates order fulfillment status and updates tracking history.
- */
+export async function getOrderById(req, res) {
+  try {
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    if (req.user.role !== 'admin' && order.user_id !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    res.status(200).json(order);
+  } catch (error) {
+    console.error('[Order] getOrderById error:', error);
+    res.status(500).json({ message: 'Error fetching order' });
+  }
+}
+
 export async function updateOrderStatus(req, res) {
   const { id } = req.params;
   const { status } = req.body;
 
-  const validStatuses = ["confirmed", "packed", "shipped", "out_for_delivery", "delivered"];
-  if (!validStatuses.includes(status)) {
-    return res.status(400).json({ message: "Invalid order status value" });
-  }
+  const locationMap = {
+    confirmed: 'Mill Warehouse',
+    packed: 'Mill Warehouse',
+    shipped: 'Transit Hub',
+    out_for_delivery: 'Local Delivery Office',
+    delivered: 'Customer Doorstep',
+    cancelled: 'N/A',
+  };
+
+  const coordsMap = {
+    confirmed: [77.5946, 12.9716],
+    packed: [77.5950, 12.9720],
+    shipped: [77.6300, 12.9400],
+    out_for_delivery: [77.6100, 12.9500],
+    delivered: [77.6000, 12.9600],
+    cancelled: [77.5946, 12.9716],
+  };
 
   try {
-    const order = await Order.findById(id);
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+    // Get the order
+    const { data: order, error: fetchError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !order) {
+      return res.status(404).json({ message: 'Order not found' });
     }
 
-    order.status = status;
-    
-    // Automatically update payment status if order is COD and status is delivered
-    if (status === "delivered" && order.payment_method === "Cash on Delivery") {
-      order.payment_status = "completed";
-    }
+    // Update order status
+    const { data: updatedOrder, error } = await supabase
+      .from('orders')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
 
-    await order.save();
+    if (error) throw error;
 
-    // Update Delivery Tracking History
-    let location = "Mill Warehouse";
-    if (status === "shipped") location = "Transit Hub";
-    if (status === "out_for_delivery") location = "Local Delivery Office";
-    if (status === "delivered") location = "Customer Doorstep";
+    // Update delivery tracking history
+    const { data: tracking } = await supabase
+      .from('delivery_tracking')
+      .select('history')
+      .eq('order_id', id)
+      .single();
 
-    const coords = {
-      confirmed: [77.5946, 12.9716],
-      packed: [77.595, 12.972],
-      shipped: [77.63, 12.94],
-      out_for_delivery: [77.61, 12.95],
-      delivered: [77.60, 12.96],
-    };
+    const history = tracking?.history || [];
+    history.push({
+      status,
+      location: locationMap[status] || 'Unknown',
+      timestamp: new Date().toISOString(),
+    });
 
-    await DeliveryTracking.findOneAndUpdate(
-      { orderId: order._id },
-      {
-        $set: {
-          status,
-          currentLocation: location,
-          coordinates: coords[status] || [77.5946, 12.9716],
-        },
-        $push: {
-          history: { status, location, timestamp: new Date() },
-        },
-      }
-    );
-
-    // Socket.io emit alert to customer
-    if (order.user_id) {
-      emitNotification(order.user_id, "order_update", {
-        orderId: order._id,
+    await supabase
+      .from('delivery_tracking')
+      .update({
         status,
-        message: `Your order status has been updated to: ${status}`,
+        current_location: locationMap[status] || 'Unknown',
+        coordinates: coordsMap[status] || null,
+        history,
+      })
+      .eq('order_id', id);
+
+    // Notify customer via Socket.io
+    if (order.user_id) {
+      emitNotification(order.user_id, 'order_update', {
+        orderId: id,
+        status,
+        message: `Your order status is now: ${status.replace(/_/g, ' ')}`,
       });
     }
 
-    // SMS notify update
-    const smsText = `Order Update: Your order #${order._id.toString().slice(0, 8).toUpperCase()} is now ${status.toUpperCase().replace(/_/g, " ")}. Tracking updates available.`;
+    // Send email notification
+    if (order.email) {
+      sendOrderStatusEmail(order.email, order.customer_name, id, status).catch(() => {});
+    }
+
+    // SMS update
+    const smsText = `Order #${id.slice(0, 8).toUpperCase()} is now ${status.toUpperCase().replace(/_/g, ' ')} - Sri Venkateshwara Oil Mill`;
     sendSmsNotification(order.phone, smsText).catch(() => {});
 
-    res.status(200).json({ message: "Order status updated successfully", order });
+    res.status(200).json({ message: 'Order status updated', order: updatedOrder });
   } catch (error) {
-    console.error("[Order Controller] Update Order Status Error:", error);
-    res.status(500).json({ message: "Server error updating status" });
+    console.error('[Order] updateOrderStatus error:', error);
+    res.status(500).json({ message: 'Error updating order status' });
   }
 }
 
-/**
- * Downloads a generated Invoice PDF.
- */
 export async function downloadInvoice(req, res) {
   const { id } = req.params;
 
   try {
-    const order = await Order.findById(id);
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !order) {
+      return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Admins can view any; users can only view their own
-    if (req.user.role !== "admin" && order.user_id !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Access denied" });
+    if (req.user.role !== 'admin' && order.user_id !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
-    const invoiceRecord = await Invoice.findOne({ orderId: order._id });
-    const invoiceNum = invoiceRecord ? invoiceRecord.invoiceNumber : "INV-GENERIC";
+    const { data: invoiceRecord } = await supabase
+      .from('invoices')
+      .select('invoice_number')
+      .eq('order_id', id)
+      .single();
 
-    const pdfBuffer = await generateInvoicePdf(order, invoiceNum);
+    const invoiceNumber = invoiceRecord?.invoice_number || `INV-${id.slice(0, 8).toUpperCase()}`;
+    const pdfBuffer = await generateInvoicePdf(order, invoiceNumber);
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=invoice_${order._id.toString().slice(0, 8).toUpperCase()}.pdf`);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=invoice_${id.slice(0, 8).toUpperCase()}.pdf`);
     res.send(pdfBuffer);
   } catch (error) {
-    console.error("[Order Controller] Download Invoice Error:", error);
-    res.status(500).json({ message: "Server error downloading invoice PDF" });
+    console.error('[Order] downloadInvoice error:', error);
+    res.status(500).json({ message: 'Error generating invoice' });
   }
 }
 
-/**
- * Fetches Delivery Tracking details for an order.
- */
 export async function getOrderTracking(req, res) {
   const { id } = req.params;
 
   try {
-    const tracking = await DeliveryTracking.findOne({ orderId: id });
-    if (!tracking) {
-      return res.status(404).json({ message: "Tracking details not found" });
+    const { data, error } = await supabase
+      .from('delivery_tracking')
+      .select('*')
+      .eq('order_id', id)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ message: 'Tracking info not found' });
     }
-    res.status(200).json(tracking);
+    res.status(200).json(data);
   } catch (error) {
-    console.error("[Order Controller] Get Tracking Error:", error);
-    res.status(500).json({ message: "Server error fetching delivery details" });
+    console.error('[Order] getOrderTracking error:', error);
+    res.status(500).json({ message: 'Error fetching tracking' });
   }
 }

@@ -1,186 +1,192 @@
-import Order from "../models/Order.js";
-import User from "../models/User.js";
-import Product from "../models/Product.js";
+import supabase from '../config/supabase.js';
 
-/**
- * Aggregates statistics for the Admin Dashboard metrics and charts.
- */
 export async function getDashboardStats(req, res) {
   try {
-    const totalOrders = await Order.countDocuments();
-    const totalProducts = await Product.countDocuments();
-    const totalCustomers = await User.countDocuments({ role: "customer" });
-    const lowStockProductsCount = await Product.countDocuments({ stock: { $lte: 5 } });
+    // Fetch all orders
+    const { data: orders, error: ordersErr } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    // Pending Orders count (anything not delivered/cancelled)
-    const pendingOrders = await Order.countDocuments({
-      status: { $in: ["confirmed", "packed", "shipped", "out_for_delivery"] },
-    });
+    if (ordersErr) throw ordersErr;
 
-    // Cancelled Orders (status is cancelled)
-    const cancelledOrders = await Order.countDocuments({ status: "cancelled" });
+    const allOrders = orders || [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    // Today's Orders
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const todayOrdersCount = await Order.countDocuments({
-      createdAt: { $gte: startOfToday },
-    });
-
-    // Revenue aggregations
-    const allOrders = await Order.find();
-    
-    let totalRevenue = 0;
-    let monthlyRevenue = 0;
-    
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    allOrders.forEach((o) => {
-      totalRevenue += o.total;
-      if (new Date(o.createdAt) >= startOfMonth) {
-        monthlyRevenue += o.total;
-      }
-    });
-
-    // Daily Sales analytics (last 30 days)
-    const dailySalesMap = new Map();
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-    allOrders.forEach((o) => {
-      const orderDate = new Date(o.createdAt);
-      if (orderDate >= thirtyDaysAgo) {
-        const dateKey = orderDate.toISOString().split("T")[0];
-        dailySalesMap.set(dateKey, (dailySalesMap.get(dateKey) || 0) + o.total);
-      }
-    });
-
-    const dailySales = Array.from(dailySalesMap.entries()).map(([date, revenue]) => ({
-      date,
-      revenue,
-    })).sort((a, b) => a.date.localeCompare(b.date));
-
-    // Product performance sales mix
+    // Aggregate stats
+    let totalRevenue = 0;
+    let monthlyRevenue = 0;
+    const dailySalesMap = new Map();
     const productStatsMap = new Map();
+
     allOrders.forEach((o) => {
-      o.items.forEach((item) => {
-        const current = productStatsMap.get(item.id) || { name: item.name, units: 0, revenue: 0 };
-        current.units += item.qty;
-        current.revenue += item.qty * item.price;
-        productStatsMap.set(item.id, current);
+      const orderDate = new Date(o.created_at);
+      totalRevenue += o.total;
+
+      if (orderDate >= startOfMonth) monthlyRevenue += o.total;
+
+      if (orderDate >= thirtyDaysAgo) {
+        const key = orderDate.toISOString().split('T')[0];
+        dailySalesMap.set(key, (dailySalesMap.get(key) || 0) + o.total);
+      }
+
+      const items = Array.isArray(o.items) ? o.items : [];
+      items.forEach((item) => {
+        const cur = productStatsMap.get(item.id) || { name: item.name, units: 0, revenue: 0 };
+        cur.units += item.qty;
+        cur.revenue += item.qty * item.price;
+        productStatsMap.set(item.id, cur);
       });
     });
 
-    const productPerformance = Array.from(productStatsMap.entries()).map(([id, info]) => ({
-      productId: id,
-      ...info,
-    })).sort((a, b) => b.units - a.units);
+    // Low stock products
+    const { data: lowStock } = await supabase
+      .from('products')
+      .select('id, name, stock, category')
+      .lte('stock', 5)
+      .eq('enabled', true)
+      .limit(10);
 
-    // List of 5 recent orders
-    const recentOrders = await Order.find().sort({ createdAt: -1 }).limit(5);
+    // Counts
+    const totalOrders = allOrders.length;
+    const todayOrders = allOrders.filter((o) => new Date(o.created_at) >= today).length;
+    const pendingOrders = allOrders.filter((o) => ['confirmed', 'packed', 'shipped', 'out_for_delivery'].includes(o.status)).length;
+    const cancelledOrders = allOrders.filter((o) => o.status === 'cancelled').length;
 
-    // List of 5 recent customers
-    const recentCustomers = await User.find({ role: "customer" }).sort({ createdAt: -1 }).limit(5);
+    const dailySales = Array.from(dailySalesMap.entries())
+      .map(([date, revenue]) => ({ date, revenue }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
-    // Low stock product models list
-    const lowStockProducts = await Product.find({ stock: { $lte: 5 } }).limit(10);
+    const productPerformance = Array.from(productStatsMap.entries())
+      .map(([productId, info]) => ({ productId, ...info }))
+      .sort((a, b) => b.units - a.units);
 
     res.status(200).json({
       stats: {
         totalOrders,
-        todayOrders: todayOrdersCount,
-        monthlyRevenue,
+        todayOrders,
         totalRevenue,
-        totalCustomers,
-        totalProducts,
-        lowStockProducts: lowStockProductsCount,
+        monthlyRevenue,
         pendingOrders,
         cancelledOrders,
+        lowStockCount: (lowStock || []).length,
       },
-      charts: {
-        dailySales,
-        productPerformance,
-      },
-      recentOrders,
-      recentCustomers,
-      lowStockProducts,
+      charts: { dailySales, productPerformance },
+      recentOrders: allOrders.slice(0, 5),
+      lowStockProducts: lowStock || [],
     });
   } catch (error) {
-    console.error("[Admin Controller] Dashboard Stats Error:", error);
-    res.status(500).json({ message: "Server error calculating stats" });
+    console.error('[Admin] getDashboardStats error:', error);
+    res.status(500).json({ message: 'Error calculating dashboard stats' });
   }
 }
 
-/**
- * Gets all customers with total order count and aggregate spend.
- */
 export async function getCustomers(req, res) {
   try {
-    const users = await User.find({ role: "customer" }).sort({ createdAt: -1 });
+    // Get all users with customer role
+    const { data: roles, error } = await supabase
+      .from('user_roles')
+      .select('user_id, role, created_at')
+      .eq('role', 'customer')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
     const customers = [];
+    for (const roleEntry of (roles || [])) {
+      const { data: userOrders } = await supabase
+        .from('orders')
+        .select('id, total, status, created_at, phone, address')
+        .eq('user_id', roleEntry.user_id)
+        .order('created_at', { ascending: false });
 
-    for (const u of users) {
-      const orders = await Order.find({ user_id: u._id.toString() });
-      const totalSpend = orders.reduce((sum, o) => sum + o.total, 0);
+      const orders = userOrders || [];
+      const totalSpend = orders.reduce((s, o) => s + o.total, 0);
 
-      // Find first phone/address from order history if available
-      const latestOrder = orders[0];
-      const phone = latestOrder ? latestOrder.phone : "No orders yet";
-      const address = latestOrder ? latestOrder.address : "No address specified";
+      // Get auth user details via admin API
+      const { data: authUser } = await supabase.auth.admin.getUserById(roleEntry.user_id);
 
       customers.push({
-        id: u._id,
-        email: u.email,
-        phone,
-        address,
-        isBlocked: u.isBlocked,
-        createdAt: u.createdAt,
+        id: roleEntry.user_id,
+        email: authUser?.user?.email || 'N/A',
+        phone: orders[0]?.phone || 'N/A',
+        address: orders[0]?.address || 'No address',
+        joinedAt: roleEntry.created_at,
         totalOrders: orders.length,
         totalSpend,
         orderHistory: orders.map((o) => ({
-          orderId: o._id,
+          orderId: o.id,
           total: o.total,
           status: o.status,
-          date: o.createdAt,
+          date: o.created_at,
         })),
       });
     }
 
     res.status(200).json(customers);
   } catch (error) {
-    console.error("[Admin Controller] Get Customers Error:", error);
-    res.status(500).json({ message: "Server error compiling customer list" });
+    console.error('[Admin] getCustomers error:', error);
+    res.status(500).json({ message: 'Error fetching customers' });
   }
 }
 
-/**
- * Blocks or unblocks a customer. Banned customers cannot generate login codes or request APIs.
- */
 export async function toggleBlockCustomer(req, res) {
   const { id } = req.params;
   const { isBlocked } = req.body;
 
   try {
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    // Supabase Admin: ban/unban user
+    const { error } = isBlocked
+      ? await supabase.auth.admin.updateUserById(id, { ban_duration: '87600h' }) // 10 years
+      : await supabase.auth.admin.updateUserById(id, { ban_duration: 'none' });
 
-    user.isBlocked = isBlocked;
-    await user.save();
+    if (error) throw error;
 
     res.status(200).json({
-      message: `User account has been successfully ${isBlocked ? "blocked" : "unblocked"}`,
-      user: {
-        id: user._id,
-        email: user.email,
-        isBlocked: user.isBlocked,
-      },
+      message: `User ${isBlocked ? 'blocked' : 'unblocked'} successfully`,
     });
   } catch (error) {
-    console.error("[Admin Controller] Block Customer Error:", error);
-    res.status(500).json({ message: "Server error updating block status" });
+    console.error('[Admin] toggleBlockCustomer error:', error);
+    res.status(500).json({ message: 'Error updating user block status' });
+  }
+}
+
+export async function getDeliveryList(req, res) {
+  try {
+    const { data, error } = await supabase
+      .from('delivery_tracking')
+      .select('*, orders(customer_name, phone, address, total)')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.status(200).json(data || []);
+  } catch (error) {
+    console.error('[Admin] getDeliveryList error:', error);
+    res.status(500).json({ message: 'Error fetching delivery list' });
+  }
+}
+
+export async function updateDelivery(req, res) {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('delivery_tracking')
+      .update(req.body)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error || !data) return res.status(404).json({ message: 'Delivery record not found' });
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('[Admin] updateDelivery error:', error);
+    res.status(500).json({ message: 'Error updating delivery' });
   }
 }

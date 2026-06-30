@@ -1,19 +1,15 @@
-import { v2 as cloudinary } from "cloudinary";
+import { v2 as cloudinary } from 'cloudinary';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-const apiKey = process.env.CLOUDINARY_API_KEY;
-const apiSecret = process.env.CLOUDINARY_API_SECRET;
-
-if (cloudName && apiKey && apiSecret) {
-  cloudinary.config({
-    cloud_name: cloudName,
-    api_key: apiKey,
-    api_secret: apiSecret,
-  });
-  console.log("[Cloudinary] Configured successfully");
-} else {
-  console.log("[Cloudinary Warning] Missing credentials. Running in Simulator Mode.");
-}
+/**
+ * Configure Cloudinary with credentials from environment variables.
+ * If credentials are missing, uploads will fail gracefully at runtime.
+ */
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || '',
+  api_key: process.env.CLOUDINARY_API_KEY || '',
+  api_secret: process.env.CLOUDINARY_API_SECRET || '',
+});
 
 export default cloudinary;
-export const isCloudinaryConfigured = !!(cloudName && apiKey && apiSecret);

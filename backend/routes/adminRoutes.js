@@ -1,13 +1,23 @@
-import express from "express";
-import { getDashboardStats, getCustomers, toggleBlockCustomer } from "../controllers/adminController.js";
-import { protect, adminOnly } from "../middleware/authMiddleware.js";
+import { Router } from 'express';
+import {
+  getDashboardStats, getCustomers, toggleBlockCustomer,
+  getDeliveryList, updateDelivery,
+} from '../controllers/adminController.js';
+import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
-const router = express.Router();
+const router = Router();
 
-router.use(protect, adminOnly); // Admin-only routes
+/**
+ * @swagger
+ * tags:
+ *   name: Admin
+ *   description: Admin-only management endpoints
+ */
 
-router.get("/stats", getDashboardStats);
-router.get("/customers", getCustomers);
-router.put("/customers/:id/block", toggleBlockCustomer);
+router.get('/stats', protect, adminOnly, getDashboardStats);
+router.get('/customers', protect, adminOnly, getCustomers);
+router.put('/customers/:id/block', protect, adminOnly, toggleBlockCustomer);
+router.get('/delivery', protect, adminOnly, getDeliveryList);
+router.put('/delivery/:id', protect, adminOnly, updateDelivery);
 
 export default router;

@@ -1,15 +1,18 @@
-import express from "express";
-import { createRazorpayOrder, verifyPayment, getPaymentHistory } from "../controllers/paymentController.js";
-import { protect, adminOnly } from "../middleware/authMiddleware.js";
+import { Router } from 'express';
+import { createRazorpayOrder, verifyPayment, getPaymentHistory } from '../controllers/paymentController.js';
+import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
-const router = express.Router();
+const router = Router();
 
-router.use(protect); // Payment endpoints require verification
+/**
+ * @swagger
+ * tags:
+ *   name: Payments
+ *   description: Razorpay payment integration
+ */
 
-router.post("/razorpay", createRazorpayOrder);
-router.post("/verify", verifyPayment);
-
-// Admin-only payment logs
-router.get("/history", adminOnly, getPaymentHistory);
+router.post('/create-order', protect, createRazorpayOrder);
+router.post('/verify', protect, verifyPayment);
+router.get('/', protect, adminOnly, getPaymentHistory);
 
 export default router;

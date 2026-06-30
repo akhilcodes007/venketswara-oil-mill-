@@ -1,49 +1,63 @@
-import Cart from "../models/Cart.js";
+import supabase from '../config/supabase.js';
 
-/**
- * Gets a user's persistent cart from the database.
- */
 export async function getCart(req, res) {
   try {
-    const cart = await Cart.findOne({ user_id: req.user._id.toString() });
-    if (!cart) {
-      return res.status(200).json({ items: [] });
-    }
-    res.status(200).json(cart);
+    const { data, error } = await supabase
+      .from('cart_items')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    res.status(200).json({ items: data || [] });
   } catch (error) {
-    console.error("[Cart Controller] Get Cart Error:", error);
-    res.status(500).json({ message: "Server error fetching cart" });
+    console.error('[Cart] getCart error:', error);
+    res.status(500).json({ message: 'Error fetching cart' });
   }
 }
 
-/**
- * Saves/Syncs the cart to the database.
- */
 export async function saveCart(req, res) {
   const { items } = req.body;
+  const userId = req.user.id;
 
   try {
-    const updatedCart = await Cart.findOneAndUpdate(
-      { user_id: req.user._id.toString() },
-      { $set: { items } },
-      { new: true, upsert: true }
-    );
-    res.status(200).json(updatedCart);
+    // Clear existing cart items
+    await supabase.from('cart_items').delete().eq('user_id', userId);
+
+    // Insert all new items
+    if (items && items.length > 0) {
+      const rows = items.map((item) => ({
+        user_id: userId,
+        product_id: item.id,
+        name: item.name,
+        size: item.size,
+        price: item.price,
+        qty: item.qty,
+        image: item.image || null,
+      }));
+
+      const { error } = await supabase.from('cart_items').insert(rows);
+      if (error) throw error;
+    }
+
+    res.status(200).json({ message: 'Cart synced successfully' });
   } catch (error) {
-    console.error("[Cart Controller] Save Cart Error:", error);
-    res.status(500).json({ message: "Server error syncing cart to database" });
+    console.error('[Cart] saveCart error:', error);
+    res.status(500).json({ message: 'Error syncing cart' });
   }
 }
 
-/**
- * Clears the persistent cart in the database.
- */
 export async function clearCart(req, res) {
   try {
-    await Cart.findOneAndDelete({ user_id: req.user._id.toString() });
-    res.status(200).json({ message: "Cart cleared successfully" });
+    const { error } = await supabase
+      .from('cart_items')
+      .delete()
+      .eq('user_id', req.user.id);
+
+    if (error) throw error;
+    res.status(200).json({ message: 'Cart cleared' });
   } catch (error) {
-    console.error("[Cart Controller] Clear Cart Error:", error);
-    res.status(500).json({ message: "Server error clearing cart" });
+    console.error('[Cart] clearCart error:', error);
+    res.status(500).json({ message: 'Error clearing cart' });
   }
 }

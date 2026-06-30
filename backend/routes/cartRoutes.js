@@ -1,13 +1,11 @@
-import express from "express";
-import { getCart, saveCart, clearCart } from "../controllers/cartController.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { Router } from 'express';
+import { getCart, saveCart, clearCart } from '../controllers/cartController.js';
+import { protect } from '../middleware/authMiddleware.js';
 
-const router = express.Router();
+const router = Router();
 
-router.use(protect); // All cart endpoints require user authentication
-
-router.get("/", getCart);
-router.post("/", saveCart);
-router.delete("/", clearCart);
+router.get('/', protect, getCart);
+router.post('/sync', protect, saveCart);
+router.delete('/', protect, clearCart);
 
 export default router;

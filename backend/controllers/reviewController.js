@@ -1,63 +1,76 @@
-import Review from "../models/Review.js";
-import Product from "../models/Product.js";
+import supabase from '../config/supabase.js';
 
-/**
- * Gets reviews for a specific product.
- */
 export async function getProductReviews(req, res) {
   const { productId } = req.params;
-
   try {
-    const reviews = await Review.find({ product_id: productId })
-      .sort({ createdAt: -1 })
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('product_id', productId)
+      .order('created_at', { ascending: false })
       .limit(20);
-      
-    res.status(200).json(reviews);
+
+    if (error) throw error;
+    res.status(200).json(data || []);
   } catch (error) {
-    console.error("[Review Controller] Get Product Reviews Error:", error);
-    res.status(500).json({ message: "Server error retrieving reviews" });
+    console.error('[Review] getProductReviews error:', error);
+    res.status(500).json({ message: 'Error fetching reviews' });
   }
 }
 
-/**
- * Upserts a customer review.
- */
 export async function submitReview(req, res) {
   const { product_id, rating, comment } = req.body;
-  const userId = req.user._id.toString();
-  const email = req.user.email;
+  const userId = req.user.id;
 
   try {
-    if (!product_id || !rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: "Product ID and a valid rating (1-5) are required" });
-    }
-
-    // Find and update or create a new review (upsert)
-    const review = await Review.findOneAndUpdate(
-      { user_id: userId, product_id },
-      {
-        $set: {
-          user_email: email,
+    // Upsert: one review per user per product
+    const { data, error } = await supabase
+      .from('reviews')
+      .upsert(
+        {
+          user_id: userId,
+          product_id,
           rating: parseInt(rating),
-          comment: comment ? comment.trim() : null,
+          comment: comment?.trim() || null,
         },
-      },
-      { new: true, upsert: true }
-    );
+        { onConflict: 'user_id,product_id' }
+      )
+      .select()
+      .single();
 
-    // Dynamic Recalculation: Update Product average rating
-    const reviews = await Review.find({ product_id });
-    if (reviews.length > 0) {
-      const avg = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
-      await Product.findOneAndUpdate(
-        { id: product_id },
-        { $set: { rating: parseFloat(avg.toFixed(1)) } }
-      );
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('[Review] submitReview error:', error);
+    res.status(500).json({ message: 'Error saving review' });
+  }
+}
+
+export async function deleteReview(req, res) {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const { data: review, error: fetchErr } = await supabase
+      .from('reviews')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !review) {
+      return res.status(404).json({ message: 'Review not found' });
     }
 
-    res.status(200).json(review);
+    if (req.user.role !== 'admin' && review.user_id !== userId) {
+      return res.status(403).json({ message: 'You can only delete your own reviews' });
+    }
+
+    const { error } = await supabase.from('reviews').delete().eq('id', id);
+    if (error) throw error;
+
+    res.status(200).json({ message: 'Review deleted' });
   } catch (error) {
-    console.error("[Review Controller] Submit Review Error:", error);
-    res.status(500).json({ message: "Server error saving review" });
+    console.error('[Review] deleteReview error:', error);
+    res.status(500).json({ message: 'Error deleting review' });
   }
 }

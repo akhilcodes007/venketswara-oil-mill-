@@ -1,12 +1,11 @@
-import express from "express";
-import { getNotifications, markAsRead } from "../controllers/notificationController.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { Router } from 'express';
+import { getNotifications, markAsRead, markAllRead } from '../controllers/notificationController.js';
+import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
-const router = express.Router();
+const router = Router();
 
-router.use(protect); // Notifications require user session
-
-router.get("/", getNotifications);
-router.put("/:id/read", markAsRead);
+router.get('/', protect, adminOnly, getNotifications);
+router.put('/:id/read', protect, adminOnly, markAsRead);
+router.put('/read-all', protect, adminOnly, markAllRead);
 
 export default router;

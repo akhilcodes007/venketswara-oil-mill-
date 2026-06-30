@@ -1,18 +1,26 @@
-import express from "express";
-import { createOrder, getOrders, updateOrderStatus, downloadInvoice, getOrderTracking } from "../controllers/orderController.js";
-import { protect, adminOnly } from "../middleware/authMiddleware.js";
-import { validateCheckout } from "../middleware/validators.js";
+import { Router } from 'express';
+import {
+  createOrder, getOrders, getOrderById,
+  updateOrderStatus, downloadInvoice, getOrderTracking,
+} from '../controllers/orderController.js';
+import { protect, adminOnly } from '../middleware/authMiddleware.js';
+import { validate } from '../validators/authValidator.js';
+import { createOrderSchema, updateStatusSchema } from '../validators/orderValidator.js';
 
-const router = express.Router();
+const router = Router();
 
-router.use(protect); // All order routes require authentication
+/**
+ * @swagger
+ * tags:
+ *   name: Orders
+ *   description: Order management
+ */
 
-router.post("/", validateCheckout, createOrder);
-router.get("/", getOrders);
-router.get("/:id/invoice", downloadInvoice);
-router.get("/:id/tracking", getOrderTracking);
-
-// Admin-only order status modifications
-router.put("/:id/status", adminOnly, updateOrderStatus);
+router.post('/', protect, validate(createOrderSchema), createOrder);
+router.get('/', protect, getOrders);
+router.get('/:id', protect, getOrderById);
+router.put('/:id/status', protect, adminOnly, validate(updateStatusSchema), updateOrderStatus);
+router.get('/:id/invoice', protect, downloadInvoice);
+router.get('/:id/tracking', protect, getOrderTracking);
 
 export default router;

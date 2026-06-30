@@ -1,126 +1,125 @@
-import ShippingAddress from "../models/ShippingAddress.js";
+import supabase from '../config/supabase.js';
 
-/**
- * Gets all saved addresses for a user.
- */
 export async function getAddresses(req, res) {
   try {
-    const addresses = await ShippingAddress.find({ user_id: req.user._id.toString() });
-    res.status(200).json(addresses);
+    const { data, error } = await supabase
+      .from('addresses')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('is_default', { ascending: false });
+
+    if (error) throw error;
+    res.status(200).json(data || []);
   } catch (error) {
-    console.error("[Address Controller] Get Addresses Error:", error);
-    res.status(500).json({ message: "Server error retrieving addresses" });
+    console.error('[Address] getAddresses error:', error);
+    res.status(500).json({ message: 'Error fetching addresses' });
   }
 }
 
-/**
- * Adds a new address.
- */
-export async function createAddress(req, res) {
-  const { label, address, landmark, city, state, pincode, phone } = req.body;
-  const userId = req.user._id.toString();
+export async function addAddress(req, res) {
+  const { label, address, landmark, city, state, pincode, phone, is_default } = req.body;
+  const userId = req.user.id;
 
   try {
-    const existing = await ShippingAddress.find({ user_id: userId });
-    
-    // First address is default
-    const isDefault = existing.length === 0;
+    // If setting as default, unset all others first
+    if (is_default) {
+      await supabase
+        .from('addresses')
+        .update({ is_default: false })
+        .eq('user_id', userId);
+    }
 
-    const newAddress = await ShippingAddress.create({
-      user_id: userId,
-      label: label || "Home",
-      address,
-      landmark,
-      city,
-      state,
-      pincode,
-      phone,
-      isDefault,
-    });
+    const { data, error } = await supabase
+      .from('addresses')
+      .insert({ user_id: userId, label: label || 'Home', address, landmark, city, state, pincode, phone, is_default: is_default || false })
+      .select()
+      .single();
 
-    res.status(201).json(newAddress);
+    if (error) throw error;
+    res.status(201).json(data);
   } catch (error) {
-    console.error("[Address Controller] Create Address Error:", error);
-    res.status(500).json({ message: "Server error saving address" });
+    console.error('[Address] addAddress error:', error);
+    res.status(500).json({ message: 'Error adding address' });
   }
 }
 
-/**
- * Updates an address.
- */
 export async function updateAddress(req, res) {
   const { id } = req.params;
+  const userId = req.user.id;
 
   try {
-    const addressRecord = await ShippingAddress.findOne({ _id: id, user_id: req.user._id.toString() });
-    if (!addressRecord) {
-      return res.status(404).json({ message: "Address not found" });
+    // Verify ownership
+    const { data: existing } = await supabase
+      .from('addresses')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (!existing || existing.user_id !== userId) {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
-    const updated = await ShippingAddress.findByIdAndUpdate(
-      id,
-      { $set: req.body },
-      { new: true }
-    );
+    if (req.body.is_default) {
+      await supabase.from('addresses').update({ is_default: false }).eq('user_id', userId);
+    }
 
-    res.status(200).json(updated);
+    const { data, error } = await supabase
+      .from('addresses')
+      .update(req.body)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(200).json(data);
   } catch (error) {
-    console.error("[Address Controller] Update Address Error:", error);
-    res.status(500).json({ message: "Server error updating address" });
+    console.error('[Address] updateAddress error:', error);
+    res.status(500).json({ message: 'Error updating address' });
   }
 }
 
-/**
- * Deletes an address.
- */
 export async function deleteAddress(req, res) {
   const { id } = req.params;
-  const userId = req.user._id.toString();
+  const userId = req.user.id;
 
   try {
-    const deleted = await ShippingAddress.findOneAndDelete({ _id: id, user_id: userId });
-    if (!deleted) {
-      return res.status(404).json({ message: "Address not found" });
+    const { data: existing } = await supabase
+      .from('addresses')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (!existing || existing.user_id !== userId) {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
-    // If we deleted the default address, make another one default (if any exist)
-    if (deleted.isDefault) {
-      const remaining = await ShippingAddress.find({ user_id: userId });
-      if (remaining.length > 0) {
-        await ShippingAddress.findByIdAndUpdate(remaining[0]._id, { $set: { isDefault: true } });
-      }
-    }
-
-    res.status(200).json({ message: "Address deleted successfully" });
+    const { error } = await supabase.from('addresses').delete().eq('id', id);
+    if (error) throw error;
+    res.status(200).json({ message: 'Address deleted' });
   } catch (error) {
-    console.error("[Address Controller] Delete Address Error:", error);
-    res.status(500).json({ message: "Server error deleting address" });
+    console.error('[Address] deleteAddress error:', error);
+    res.status(500).json({ message: 'Error deleting address' });
   }
 }
 
-/**
- * Sets a specific address as default.
- */
 export async function setDefaultAddress(req, res) {
   const { id } = req.params;
-  const userId = req.user._id.toString();
+  const userId = req.user.id;
 
   try {
-    const address = await ShippingAddress.findOne({ _id: id, user_id: userId });
-    if (!address) {
-      return res.status(404).json({ message: "Address not found" });
-    }
+    await supabase.from('addresses').update({ is_default: false }).eq('user_id', userId);
+    const { data, error } = await supabase
+      .from('addresses')
+      .update({ is_default: true })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single();
 
-    // Set all others to false
-    await ShippingAddress.updateMany({ user_id: userId }, { $set: { isDefault: false } });
-
-    // Set this to true
-    address.isDefault = true;
-    await address.save();
-
-    res.status(200).json({ message: "Default address updated", address });
+    if (error || !data) return res.status(404).json({ message: 'Address not found' });
+    res.status(200).json(data);
   } catch (error) {
-    console.error("[Address Controller] Set Default Error:", error);
-    res.status(500).json({ message: "Server error setting default address" });
+    console.error('[Address] setDefault error:', error);
+    res.status(500).json({ message: 'Error setting default address' });
   }
 }

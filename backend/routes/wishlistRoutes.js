@@ -1,12 +1,11 @@
-import express from "express";
-import { getWishlist, saveWishlist } from "../controllers/wishlistController.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { Router } from 'express';
+import { getWishlist, addToWishlist, removeFromWishlist } from '../controllers/wishlistController.js';
+import { protect } from '../middleware/authMiddleware.js';
 
-const router = express.Router();
+const router = Router();
 
-router.use(protect); // All wishlist endpoints require authentication
-
-router.get("/", getWishlist);
-router.post("/", saveWishlist);
+router.get('/', protect, getWishlist);
+router.post('/', protect, addToWishlist);
+router.delete('/:productId/:size', protect, removeFromWishlist);
 
 export default router;

@@ -1,40 +1,34 @@
-import Razorpay from "razorpay";
-
-let razorpay;
+import Razorpay from 'razorpay';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const keyId = process.env.RAZORPAY_KEY_ID;
 const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
-if (keyId && keySecret) {
-  razorpay = new Razorpay({
-    key_id: keyId,
-    key_secret: keySecret,
-  });
-  console.log("[Razorpay] SDK initialized successfully");
-} else {
-  console.log("[Razorpay Warning] Missing API keys. Initialized Razorpay in Simulator Mode.");
-  
-  // Return simulated orders module
-  razorpay = {
-    orders: {
-      create: async (options) => {
-        return {
-          id: `order_mock_${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-          entity: "order",
-          amount: options.amount,
-          amount_paid: 0,
-          amount_due: options.amount,
-          currency: options.currency || "INR",
-          receipt: options.receipt,
-          status: "created",
-          attempts: 0,
-          notes: options.notes,
-          created_at: Math.floor(Date.now() / 1000),
-        };
+/**
+ * isSimulator — true when Razorpay keys are not configured.
+ * In simulator mode, order creation returns a fake order object
+ * so the rest of the order flow can still be tested end-to-end.
+ */
+export const isSimulator = !keyId || !keySecret;
+
+const razorpay = isSimulator
+  ? {
+      orders: {
+        create: async (opts) => ({
+          id: `sim_${Date.now()}`,
+          amount: opts.amount,
+          currency: opts.currency,
+          receipt: opts.receipt,
+        }),
       },
-    },
-  };
+    }
+  : new Razorpay({ key_id: keyId, key_secret: keySecret });
+
+if (isSimulator) {
+  console.warn(
+    '[Razorpay] Running in SIMULATOR mode. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET for live payments.'
+  );
 }
 
 export default razorpay;
-export const isSimulator = !keyId || !keySecret;

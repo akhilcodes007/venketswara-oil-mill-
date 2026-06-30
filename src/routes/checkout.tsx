@@ -1,18 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ImageOff, LogIn, Trash2 } from "lucide-react";
+import { LogIn, Trash2, Loader2 } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui/radio-group";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useShop } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
@@ -31,7 +31,30 @@ const PAYMENT_METHODS = [
   "Debit / Credit Card",
   "Net Banking",
   "Cash on Delivery",
-];
+] as const;
+
+const checkoutSchema = z.object({
+  name: z.string().min(2, "Name is required"),
+  mobile: z.string().min(10, "Valid mobile number is required"),
+  address: z.string().min(5, "Delivery address is required"),
+  landmark: z.string().optional(),
+  city: z.string().min(2, "City is required"),
+  state: z.string().min(2, "State is required"),
+  pincode: z.string().min(6, "Valid pincode is required"),
+  payment: z.string().min(1, "Payment method is required"),
+});
+
+type CheckoutFormValues = z.infer<typeof checkoutSchema>;
+
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 function Checkout() {
   const { cart, updateQty, removeFromCart, clearCart } = useShop();
@@ -41,28 +64,22 @@ function Checkout() {
   const [coupon, setCoupon] = useState("");
   const [discountPct, setDiscountPct] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    mobile: "",
-    address: "",
-    landmark: "",
-    city: "",
-    state: "",
-    pincode: "",
-  });
-  const [payment, setPayment] = useState(PAYMENT_METHODS[0]);
-  const [savedAddresses, setSavedAddresses] = useState<{
-    id: string;
-    label: string;
-    address: string;
-    landmark: string;
-    city: string;
-    state: string;
-    pincode: string;
-    phone: string;
-    isDefault?: boolean;
-  }[]>([]);
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+
+  const form = useForm<CheckoutFormValues>({
+    resolver: zodResolver(checkoutSchema),
+    defaultValues: {
+      name: "",
+      mobile: "",
+      address: "",
+      landmark: "",
+      city: "",
+      state: "",
+      pincode: "",
+      payment: PAYMENT_METHODS[0],
+    },
+  });
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const discount = Math.round((subtotal * discountPct) / 100);
@@ -70,7 +87,6 @@ function Checkout() {
   const gst = Math.round(taxable * 0.05);
   const shipping = taxable === 0 ? 0 : taxable > 999 ? 0 : 60;
   const total = taxable + gst + shipping;
-  const addressBookKey = "svom_addresses_v1";
 
   const applyCoupon = () => {
     if (coupon.trim().toUpperCase() === "SVOM10") {
@@ -82,8 +98,16 @@ function Checkout() {
     }
   };
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const getPaymentMethodEnum = (m: string) => {
+    if (m === "Cash on Delivery") return "cod";
+    if (m === "UPI / Google Pay") return "upi";
+    if (m === "PhonePe") return "phonepe";
+    if (m === "Paytm") return "paytm";
+    if (m === "Net Banking") return "net_banking";
+    return "credit_card";
+  };
+
+  const onSubmit = async (values: CheckoutFormValues) => {
     if (cart.length === 0) {
       toast.error("Your cart is empty");
       return;
@@ -93,66 +117,143 @@ function Checkout() {
       navigate({ to: "/auth" });
       return;
     }
+    
     setSubmitting(true);
-    const fullAddress = [form.address, form.landmark, form.city, form.state, form.pincode]
-      .filter(Boolean)
-      .join(", ");
-    const { data, error } = await supabase
-      .from("orders")
-      .insert({
-        user_id: user.id,
-        customer_name: form.name,
-        phone: form.mobile,
-        email: user.email,
-        address: fullAddress,
-        items: cart,
+    
+    try {
+      let addressId = selectedAddressId;
+      if (!addressId) {
+        const { data, error } = await supabase.from('addresses').insert({
+          user_id: user.id,
+          name: values.name,
+          mobile: values.mobile,
+          address: values.address,
+          landmark: values.landmark || null,
+          city: values.city,
+          state: values.state,
+          pincode: values.pincode
+        }).select('id').single();
+        
+        if (error) throw error;
+        addressId = data.id;
+      }
+
+      const orderDetails = {
+        address_id: addressId,
         subtotal,
         gst,
         shipping,
         discount,
         total,
         coupon: discountPct > 0 ? coupon.trim().toUpperCase() : null,
-        payment_method: payment,
-        status: "confirmed",
-      })
-      .select("id")
-      .single();
-    setSubmitting(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+        payment_method: getPaymentMethodEnum(values.payment),
+        items: cart,
+      };
+
+      if (values.payment === "Cash on Delivery") {
+        // Direct commit for COD
+        const { data, error } = await supabase.rpc("commit_order_transaction", {
+          p_user_id: user.id,
+          p_order_details: orderDetails
+        });
+        if (error) throw error;
+        clearCart();
+        toast.success("Order placed successfully");
+        navigate({ to: `/invoice/${data}` });
+      } else {
+        // Razorpay flow
+        const res = await loadRazorpayScript();
+        if (!res) {
+          throw new Error("Razorpay SDK failed to load. Are you online?");
+        }
+
+        const { data: session } = await supabase.auth.getSession();
+        
+        const { data: rzpOrderData, error: rzpOrderError } = await supabase.functions.invoke('create-razorpay-order', {
+          body: { amount: total }
+        });
+        
+        if (rzpOrderError || rzpOrderData?.error) {
+          throw new Error(rzpOrderError?.message || rzpOrderData?.error || "Failed to create order");
+        }
+
+        const options = {
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_xxxx",
+          amount: rzpOrderData.amount,
+          currency: rzpOrderData.currency,
+          name: "Sri Venkateshwara Oil Mill",
+          description: "Premium Cold Pressed Oils",
+          order_id: rzpOrderData.id,
+          handler: async function (response: any) {
+            try {
+              const { data: verifyData, error: verifyReqError } = await supabase.functions.invoke('verify-payment', {
+                body: {
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  orderDetails,
+                }
+              });
+              
+              if (verifyReqError || verifyData?.error) {
+                throw new Error(verifyReqError?.message || verifyData?.error || "Payment verification failed");
+              }
+
+              clearCart();
+              toast.success("Payment successful! Order placed.");
+              navigate({ to: `/invoice/${verifyData.orderId}` });
+            } catch (err: any) {
+              toast.error(err.message || "Payment verification failed");
+            }
+          },
+          prefill: {
+            name: values.name,
+            email: user.email,
+            contact: values.mobile,
+          },
+          theme: {
+            color: "#b0891d",
+          },
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on("payment.failed", function (response: any) {
+          toast.error(response.error.description || "Payment failed");
+        });
+        rzp.open();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
+    } finally {
+      setSubmitting(false);
     }
-    clearCart();
-    toast.success(`Order placed successfully — #${(data?.id ?? "").slice(0, 8).toUpperCase()}`);
-    navigate({ to: "/dashboard" });
   };
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(addressBookKey);
-      if (!raw) return;
-      const list = JSON.parse(raw) as typeof savedAddresses;
-      setSavedAddresses(list);
-      if (!selectedAddressId && list.length > 0) {
-        setSelectedAddressId(list.find((item) => item.isDefault)?.id ?? list[0].id);
-      }
-    } catch {}
-  }, []);
+    if (user) {
+      supabase.from("addresses").select("*").eq("user_id", user.id).then(({ data }) => {
+        if (data && data.length > 0) {
+          setSavedAddresses(data);
+        }
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!savedAddresses.length || !selectedAddressId) return;
     const selected = savedAddresses.find((item) => item.id === selectedAddressId);
     if (!selected) return;
-    setForm((current) => ({
-      ...current,
-      mobile: selected.phone ?? current.mobile,
-      address: selected.address ?? current.address,
-      landmark: selected.landmark ?? current.landmark,
-      city: selected.city ?? current.city,
-      state: selected.state ?? current.state,
-      pincode: selected.pincode ?? current.pincode,
-    }));
-  }, [savedAddresses, selectedAddressId]);
+    form.reset({
+      ...form.getValues(),
+      name: selected.name,
+      mobile: selected.mobile,
+      address: selected.address,
+      landmark: selected.landmark || "",
+      city: selected.city,
+      state: selected.state,
+      pincode: selected.pincode,
+    });
+  }, [savedAddresses, selectedAddressId, form]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -182,7 +283,7 @@ function Checkout() {
             </Button>
           </div>
         ) : (
-          <form onSubmit={submit} className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">
             <div className="space-y-8">
               {/* Cart items */}
               <section className="rounded-2xl border border-border bg-card p-6">
@@ -239,7 +340,7 @@ function Checkout() {
               <section className="rounded-2xl border border-border bg-card p-6">
                 <h2 className="font-serif text-xl text-foreground">Delivery details</h2>
                 <div className="mt-4 space-y-4">
-                {savedAddresses.length > 0 ? (
+                {savedAddresses.length > 0 && (
                   <div className="rounded-3xl border border-border bg-background/80 p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div>
@@ -263,8 +364,8 @@ function Checkout() {
                           }`}
                         >
                           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                            <span>{address.label || "Delivery address"}</span>
-                            {address.isDefault && (
+                            <span className="font-medium text-foreground">{address.name}</span>
+                            {address.is_default && (
                               <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-primary">
                                 Default
                               </span>
@@ -276,47 +377,78 @@ function Checkout() {
                             <br />
                             {address.city}, {address.state} · {address.pincode}
                             <br />
-                            {address.phone}
+                            {address.mobile}
                           </p>
                         </button>
                       ))}
                     </div>
                   </div>
-                ) : (
-                  <div className="rounded-3xl border border-border bg-card p-4 text-sm text-muted-foreground">
-                    No saved addresses found. Save one in your profile to autofill delivery details.
-                  </div>
                 )}
               </div>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <Field label="Full Name" required value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-                <Field label="Mobile Number" required value={form.mobile} onChange={(v) => setForm({ ...form, mobile: v })} />
                 <div className="md:col-span-2">
-                  <Field label="Delivery Address" required value={form.address} onChange={(v) => setForm({ ...form, address: v })} />
+                  <Label>Full Name *</Label>
+                  <Input {...form.register("name")} className="mt-1" />
+                  {form.formState.errors.name && <p className="mt-1 text-xs text-destructive">{form.formState.errors.name.message}</p>}
                 </div>
-                <Field label="Landmark" value={form.landmark} onChange={(v) => setForm({ ...form, landmark: v })} />
-                <Field label="City" required value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
-                <Field label="State" required value={form.state} onChange={(v) => setForm({ ...form, state: v })} />
-                <Field label="Pincode" required value={form.pincode} onChange={(v) => setForm({ ...form, pincode: v })} />
+                <div>
+                  <Label>Mobile Number *</Label>
+                  <Input {...form.register("mobile")} className="mt-1" />
+                  {form.formState.errors.mobile && <p className="mt-1 text-xs text-destructive">{form.formState.errors.mobile.message}</p>}
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Delivery Address *</Label>
+                  <Input {...form.register("address")} className="mt-1" />
+                  {form.formState.errors.address && <p className="mt-1 text-xs text-destructive">{form.formState.errors.address.message}</p>}
+                </div>
+                <div>
+                  <Label>Landmark</Label>
+                  <Input {...form.register("landmark")} className="mt-1" />
+                </div>
+                <div>
+                  <Label>City *</Label>
+                  <Input {...form.register("city")} className="mt-1" />
+                  {form.formState.errors.city && <p className="mt-1 text-xs text-destructive">{form.formState.errors.city.message}</p>}
+                </div>
+                <div>
+                  <Label>State *</Label>
+                  <Input {...form.register("state")} className="mt-1" />
+                  {form.formState.errors.state && <p className="mt-1 text-xs text-destructive">{form.formState.errors.state.message}</p>}
+                </div>
+                <div>
+                  <Label>Pincode *</Label>
+                  <Input {...form.register("pincode")} className="mt-1" />
+                  {form.formState.errors.pincode && <p className="mt-1 text-xs text-destructive">{form.formState.errors.pincode.message}</p>}
+                </div>
               </div>
               </section>
 
               {/* Payment */}
               <section className="rounded-2xl border border-border bg-card p-6">
                 <h2 className="font-serif text-xl text-foreground">Payment method</h2>
-                <RadioGroup value={payment} onValueChange={setPayment} className="mt-4 grid gap-3 md:grid-cols-2">
-                  {PAYMENT_METHODS.map((m) => (
-                    <label
-                      key={m}
-                      className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition ${
-                        payment === m ? "border-primary bg-primary/5" : "border-border"
-                      }`}
+                <Controller
+                  control={form.control}
+                  name="payment"
+                  render={({ field }) => (
+                    <RadioGroup 
+                      value={field.value} 
+                      onValueChange={field.onChange} 
+                      className="mt-4 grid gap-3 md:grid-cols-2"
                     >
-                      <RadioGroupItem value={m} id={m} />
-                      <span className="text-sm text-foreground">{m}</span>
-                    </label>
-                  ))}
-                </RadioGroup>
+                      {PAYMENT_METHODS.map((m) => (
+                        <label
+                          key={m}
+                          className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition ${
+                            field.value === m ? "border-primary bg-primary/5" : "border-border"
+                          }`}
+                        >
+                          <RadioGroupItem value={m} id={m} />
+                          <span className="text-sm text-foreground">{m}</span>
+                        </label>
+                      ))}
+                    </RadioGroup>
+                  )}
+                />
               </section>
             </div>
 
@@ -330,7 +462,11 @@ function Checkout() {
               <div className="h-px bg-border" />
               <Row label="Total" value={`₹${total}`} bold />
               <Button type="submit" className="w-full" size="lg" disabled={submitting}>
-                {submitting ? "Placing order…" : "Place Order"}
+                {submitting ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing…</>
+                ) : (
+                  "Place Order"
+                )}
               </Button>
               <p className="text-center text-xs text-muted-foreground">
                 Secure checkout · Invoice generated automatically
@@ -339,33 +475,6 @@ function Checkout() {
           </form>
         )}
       </div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  required,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  required?: boolean;
-}) {
-  return (
-    <div>
-      <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-        {label}
-        {required && " *"}
-      </Label>
-      <Input
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1"
-      />
     </div>
   );
 }

@@ -1,12 +1,13 @@
-import express from "express";
-import { verifyCoupon, createCoupon } from "../controllers/couponController.js";
-import { protect, adminOnly } from "../middleware/authMiddleware.js";
+import { Router } from 'express';
+import { validateCoupon, getCoupons, createCoupon, updateCoupon, deleteCoupon } from '../controllers/couponController.js';
+import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
-const router = express.Router();
+const router = Router();
 
-router.use(protect); // Coupons are applied inside authenticated checkouts
-
-router.get("/:code", verifyCoupon);
-router.post("/", adminOnly, createCoupon);
+router.post('/validate', protect, validateCoupon);
+router.get('/', protect, adminOnly, getCoupons);
+router.post('/', protect, adminOnly, createCoupon);
+router.put('/:id', protect, adminOnly, updateCoupon);
+router.delete('/:id', protect, adminOnly, deleteCoupon);
 
 export default router;
