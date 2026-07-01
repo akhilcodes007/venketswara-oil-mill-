@@ -319,7 +319,7 @@ function AdminProducts() {
               )} />
 
               <div className="space-y-2">
-                <FormLabel>Product Image</FormLabel>
+                <label className="text-sm font-medium">Product Image</label>
                 <div className="flex items-center gap-4">
                   {imageUrl ? (
                     <img src={imageUrl} alt="Preview" className="h-20 w-20 rounded-md object-cover border" />
