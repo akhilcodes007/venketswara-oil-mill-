@@ -73,7 +73,7 @@ function InvoicePage() {
       <div className="mx-auto max-w-4xl bg-white p-8 shadow-sm print:shadow-none print:p-0">
         <div className="flex items-start justify-between border-b border-gray-200 pb-8">
           <div>
-            <h1 className="font-serif text-3xl font-bold text-gray-900">Sri Venkateshwara Oil Mill</h1>
+            <h1 className="font-serif text-3xl font-bold text-gray-900">SRI VENKETESWARA OIL MILL</h1>
             <p className="mt-2 text-sm text-gray-500">Premium Cold Pressed Oils</p>
             <p className="text-sm text-gray-500">123 Market Street, City, State - 123456</p>
             <p className="text-sm text-gray-500">GSTIN: 29XXXXXXXXXXXX</p>
@@ -154,7 +154,7 @@ function InvoicePage() {
         </div>
 
         <div className="mt-12 border-t border-gray-200 pt-8 text-center text-xs text-gray-500">
-          <p>Thank you for choosing Sri Venkateshwara Oil Mill!</p>
+          <p>Thank you for choosing SRI VENKETESWARA OIL MILL!</p>
           <p>This is a computer-generated document. No signature is required.</p>
         </div>
       </div>

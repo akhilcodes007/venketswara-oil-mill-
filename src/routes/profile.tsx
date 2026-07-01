@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/profile")({
   head: () => ({
     meta: [
-      { title: "Profile — Sri Venkateshwara Oil Mill" },
+      { title: "Profile — SRI VENKETESWARA OIL MILL" },
       { name: "description", content: "Manage your account, saved addresses, and wishlist." },
     ],
   }),

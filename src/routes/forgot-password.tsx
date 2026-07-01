@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
     meta: [
-      { title: "Forgot Password — Sri Venkateshwara Oil Mill" },
+      { title: "Forgot Password — SRI VENKETESWARA OIL MILL" },
       { name: "description", content: "Recover access to your account or use email OTP login." },
     ],
   }),

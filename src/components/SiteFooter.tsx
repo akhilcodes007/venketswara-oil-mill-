@@ -7,9 +7,13 @@ export function SiteFooter() {
         <div className="grid gap-10 lg:grid-cols-[1.2fr_1fr_0.95fr]">
           <div className="space-y-4">
             <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[var(--gold)]">
-              Contact Us
+              SRI VENKETESWARA OIL MILL
             </p>
             <div className="space-y-3 text-sm leading-7 text-[var(--cream)]/90">
+              <div>
+                <p>FSSAI License Number: 12423008003379</p>
+                <p>GSTIN: 33BHFPN6749G1Z5</p>
+              </div>
               <div>
                 <div className="font-semibold text-[var(--cream)]">Phone</div>
                 <div className="space-y-1">
@@ -112,6 +116,12 @@ export function SiteFooter() {
               >
                 Contact Us
               </a>
+              <a href="/privacy-policy" className="transition-colors hover:text-[var(--gold)]">
+                Privacy Policy
+              </a>
+              <a href="/terms" className="transition-colors hover:text-[var(--gold)]">
+                Terms & Conditions
+              </a>
             </div>
           </div>
         </div>
@@ -119,7 +129,7 @@ export function SiteFooter() {
 
       <div className="border-t border-[var(--border)] bg-[oklch(0.11_0.05_95/0.95)]">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-4 text-center text-xs tracking-[0.22em] text-[var(--cream)]/70 md:flex-row md:items-center md:justify-between md:text-left">
-          <p>© 2026 Sri Venkateshwara Oil Mill. All Rights Reserved.</p>
+          <p>© {new Date().getFullYear()} SRI VENKETESWARA OIL MILL. All Rights Reserved.</p>
           <p className="max-w-xl">
             Traditional Cold-Pressed Oils • Dry Fruits • Palm Products & Traditional Sweeteners
           </p>

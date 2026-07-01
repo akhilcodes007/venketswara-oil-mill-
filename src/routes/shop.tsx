@@ -15,19 +15,11 @@ import {
 } from "@/components/ui/select";
 import { PRODUCTS, type Product } from "@/lib/products";
 import { useShop } from "@/lib/store";
-import { ProductReviews } from "@/components/ProductReviews";
+import { ProductReviews } from "@/components/shop/ProductReviews";
+import { SEO } from "@/components/SEO";
+import { Breadcrumbs, generateBreadcrumbJsonLd } from "@/components/Breadcrumbs";
 
 export const Route = createFileRoute("/shop")({
-  head: () => ({
-    meta: [
-      { title: "Shop — Sri Venkateshwara Oil Mill" },
-      {
-        name: "description",
-        content:
-          "Shop traditional cold-pressed oils, premium dry fruits, natural honey, and millets from Sri Venkateshwara Oil Mill.",
-      },
-    ],
-  }),
   component: Shop,
 });
 
@@ -54,15 +46,27 @@ function Shop() {
     return list;
   }, [cat, search, sort]);
 
+  const breadcrumbs = [
+    { label: "Shop", href: "/shop" }
+  ];
+
   return (
     <div className="min-h-screen bg-background">
+      <SEO 
+        title="Shop — SRI VENKETESWARA OIL MILL"
+        description="Shop traditional cold-pressed oils, premium dry fruits, natural honey, and millets from SRI VENKETESWARA OIL MILL."
+        jsonLd={generateBreadcrumbJsonLd(breadcrumbs)}
+      />
       <SiteHeader />
 
       <section
         className="border-b border-border"
         style={{ background: "var(--gradient-hero)" }}
       >
-        <div className="mx-auto max-w-7xl px-4 py-12 md:px-8 md:py-16">
+        <div className="mx-auto max-w-7xl px-4 pt-6 md:px-8">
+          <Breadcrumbs items={breadcrumbs} />
+        </div>
+        <div className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-12">
           <p className="text-xs tracking-[0.3em] text-[var(--gold-deep)]">
             FROM OUR MILL TO YOUR TABLE
           </p>
@@ -140,8 +144,9 @@ function Shop() {
 }
 
 function ProductCard({ product }: { product: Product }) {
+  const navigate = useNavigate();
   const [variantIdx, setVariantIdx] = useState(0);
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(0);
   const { addToCart, toggleWishlist, isWishlisted } = useShop();
   const variant = product.variants[variantIdx];
   const wishlisted = isWishlisted(product.id, variant.size);
@@ -153,6 +158,7 @@ function ProductCard({ product }: { product: Product }) {
           <img
             src={product.image}
             alt={product.imageAlt ?? product.name}
+            loading="lazy"
             className="h-full w-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
@@ -183,7 +189,7 @@ function ProductCard({ product }: { product: Product }) {
             {product.rating ? (
               <div className="flex items-center gap-1 text-[0.75rem] text-[var(--gold)]">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <span key={i}>{i < Math.round(product.rating) ? "★" : "☆"}</span>
+                  <span key={i}>{i < Math.round(product.rating || 0) ? "★" : "☆"}</span>
                 ))}
               </div>
             ) : null}
@@ -219,8 +225,9 @@ function ProductCard({ product }: { product: Product }) {
             </div>
             <div className="flex items-center rounded-full border border-border">
               <button
-                onClick={() => setQty((q) => Math.max(1, q - 1))}
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={() => setQty((q) => Math.max(0, q - 1))}
+                disabled={qty === 0}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Decrease quantity"
               >
                 −
@@ -248,6 +255,13 @@ function ProductCard({ product }: { product: Product }) {
             <div className="grid gap-2">
               <Button
                 onClick={() => {
+                  if (qty === 0) {
+                    toast.error("Please increase the quantity before adding to cart.");
+                    return;
+                  }
+                  console.log("Trace - Product Page -> Add to Cart:");
+                  console.log("product.id:", product.id);
+                  console.log("product.slug:", product.slug);
                   addToCart({
                     id: product.id,
                     name: product.name,
@@ -265,6 +279,13 @@ function ProductCard({ product }: { product: Product }) {
               <Button
                 variant="secondary"
                 onClick={() => {
+                  if (qty === 0) {
+                    toast.error("Please increase the quantity before buying.");
+                    return;
+                  }
+                  console.log("Trace - Product Page -> Buy Now:");
+                  console.log("product.id:", product.id);
+                  console.log("product.slug:", product.slug);
                   addToCart({
                     id: product.id,
                     name: product.name,

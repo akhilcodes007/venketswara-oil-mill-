@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/addresses")({
   head: () => ({
     meta: [
-      { title: "Saved Addresses — Sri Venkateshwara Oil Mill" },
+      { title: "Saved Addresses — SRI VENKETESWARA OIL MILL" },
       { name: "description", content: "Manage your delivery addresses for faster checkout." },
     ],
   }),

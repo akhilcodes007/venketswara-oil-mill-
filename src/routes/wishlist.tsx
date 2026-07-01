@@ -9,7 +9,7 @@ import { PRODUCTS } from "@/lib/products";
 export const Route = createFileRoute("/wishlist")({
   head: () => ({
     meta: [
-      { title: "Wishlist — Sri Venkateshwara Oil Mill" },
+      { title: "Wishlist — SRI VENKETESWARA OIL MILL" },
       { name: "description", content: "Save products to your wishlist for later." },
     ],
   }),

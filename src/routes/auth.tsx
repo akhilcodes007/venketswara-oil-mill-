@@ -8,7 +8,7 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
   head: () => ({
     meta: [
-      { title: "Sign In · Sri Venkateshwara Oil Mill" },
+      { title: "Sign In · SRI VENKETESWARA OIL MILL" },
       { name: "description", content: "Sign in with a one-time email code." },
     ],
   }),
@@ -188,7 +188,7 @@ function AuthPage() {
 
           <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground">
             By continuing, you agree to receive a one-time verification email
-            from Sri Venkateshwara Oil Mill.
+            from SRI VENKETESWARA OIL MILL.
           </p>
           <div className="mt-4 text-center text-sm text-muted-foreground">
             <span>Forgot your password? </span>

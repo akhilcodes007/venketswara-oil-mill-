@@ -19,7 +19,7 @@ export type Product = {
 
 export const PRODUCTS: Product[] = [
   {
-    id: "groundnut-oil",
+    id: "10000000-0000-0000-0000-000000000001",
     slug: "groundnut-oil",
     name: "Groundnut Oil",
     category: "oils",
@@ -33,7 +33,7 @@ export const PRODUCTS: Product[] = [
     tags: ["Best Seller"],
   },
   {
-    id: "sesame-oil",
+    id: "10000000-0000-0000-0000-000000000002",
     slug: "sesame-oil",
     name: "Sesame Oil",
     category: "oils",
@@ -47,7 +47,7 @@ export const PRODUCTS: Product[] = [
     tags: ["Popular"],
   },
   {
-    id: "coconut-oil",
+    id: "10000000-0000-0000-0000-000000000003",
     slug: "coconut-oil",
     name: "Coconut Oil",
     category: "oils",
@@ -61,7 +61,7 @@ export const PRODUCTS: Product[] = [
     tags: ["New"],
   },
   {
-    id: "castor-oil",
+    id: "10000000-0000-0000-0000-000000000004",
     slug: "castor-oil",
     name: "Castor Oil",
     category: "oils",
@@ -72,7 +72,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "mustard-oil",
+    id: "10000000-0000-0000-0000-000000000005",
     slug: "mustard-oil",
     name: "Mustard Oil",
     category: "oils",
@@ -83,7 +83,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "neem-oil",
+    id: "10000000-0000-0000-0000-000000000006",
     slug: "neem-oil",
     name: "Neem Oil",
     category: "oils",
@@ -94,7 +94,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "deepam-oil",
+    id: "10000000-0000-0000-0000-000000000007",
     slug: "deepam-oil",
     name: "Deepam Oil",
     category: "oils",
@@ -107,7 +107,7 @@ export const PRODUCTS: Product[] = [
   },
   // Dry fruits
   {
-    id: "almonds",
+    id: "20000000-0000-0000-0000-000000000001",
     slug: "almonds",
     name: "Almonds",
     category: "dryfruits",
@@ -120,7 +120,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "cashews",
+    id: "20000000-0000-0000-0000-000000000002",
     slug: "cashews",
     name: "Cashews",
     category: "dryfruits",
@@ -133,7 +133,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "salted-pistachios",
+    id: "20000000-0000-0000-0000-000000000003",
     slug: "salted-pistachios",
     name: "Salted Pistachios",
     category: "dryfruits",
@@ -146,7 +146,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "unsalted-pistachios",
+    id: "20000000-0000-0000-0000-000000000004",
     slug: "unsalted-pistachios",
     name: "Unsalted Pistachios",
     category: "dryfruits",
@@ -159,7 +159,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "walnuts",
+    id: "20000000-0000-0000-0000-000000000005",
     slug: "walnuts",
     name: "Walnuts",
     category: "dryfruits",
@@ -172,7 +172,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "black-raisins",
+    id: "20000000-0000-0000-0000-000000000006",
     slug: "black-raisins",
     name: "Black Raisins (Black Dry Grapes)",
     category: "dryfruits",
@@ -185,7 +185,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "yellow-raisins",
+    id: "20000000-0000-0000-0000-000000000007",
     slug: "yellow-raisins",
     name: "Yellow Raisins (Yellow Dry Grapes)",
     category: "dryfruits",
@@ -198,7 +198,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "dates",
+    id: "20000000-0000-0000-0000-000000000008",
     slug: "dates",
     name: "Dates",
     category: "dryfruits",
@@ -211,7 +211,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "figs",
+    id: "20000000-0000-0000-0000-000000000009",
     slug: "figs",
     name: "Figs",
     category: "dryfruits",
@@ -225,7 +225,7 @@ export const PRODUCTS: Product[] = [
   },
   // Palm Products & Traditional Sweeteners
   {
-    id: "palm-sugar",
+    id: "30000000-0000-0000-0000-000000000001",
     slug: "palm-sugar",
     name: "Palm Sugar",
     category: "palm-products",
@@ -237,7 +237,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "palm-crystal-sugar",
+    id: "30000000-0000-0000-0000-000000000002",
     slug: "palm-crystal-sugar",
     name: "Palm Crystal Sugar",
     category: "palm-products",
@@ -249,7 +249,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "palm-jaggery",
+    id: "30000000-0000-0000-0000-000000000003",
     slug: "palm-jaggery",
     name: "Palm Jaggery",
     category: "palm-products",
@@ -261,7 +261,7 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: "varagu",
+    id: "40000000-0000-0000-0000-000000000001",
     slug: "varagu",
     name: "Varagu",
     tamilName: "வரகு",
@@ -297,7 +297,7 @@ export const PRODUCTS: Product[] = [
     },
   },
   {
-    id: "saamai",
+    id: "40000000-0000-0000-0000-000000000002",
     slug: "saamai",
     name: "Saamai",
     tamilName: "சாமை",
@@ -333,7 +333,7 @@ export const PRODUCTS: Product[] = [
     },
   },
   {
-    id: "kuthiraivali",
+    id: "40000000-0000-0000-0000-000000000003",
     slug: "kuthiraivali",
     name: "Kuthiraivali",
     tamilName: "குதிரைவாலி",
@@ -369,7 +369,7 @@ export const PRODUCTS: Product[] = [
     },
   },
   {
-    id: "thinai",
+    id: "40000000-0000-0000-0000-000000000004",
     slug: "thinai",
     name: "Thinai",
     tamilName: "திணை",
@@ -405,7 +405,7 @@ export const PRODUCTS: Product[] = [
     },
   },
   {
-    id: "kambu",
+    id: "40000000-0000-0000-0000-000000000005",
     slug: "kambu",
     name: "Kambu",
     tamilName: "கம்பு",
@@ -441,7 +441,7 @@ export const PRODUCTS: Product[] = [
     },
   },
   {
-    id: "kelvaragu",
+    id: "40000000-0000-0000-0000-000000000006",
     slug: "kelvaragu",
     name: "Kelvaragu",
     tamilName: "கேழ்வரகு",
@@ -477,7 +477,7 @@ export const PRODUCTS: Product[] = [
     },
   },
   {
-    id: "mappillai-samba-rice",
+    id: "40000000-0000-0000-0000-000000000007",
     slug: "mappillai-samba-rice",
     name: "Mappillai Samba Rice",
     tamilName: "மாப்பிள்ளை சம்பா அரிசி",
@@ -513,7 +513,7 @@ export const PRODUCTS: Product[] = [
     },
   },
   {
-    id: "karuppu-kavuni-rice",
+    id: "40000000-0000-0000-0000-000000000008",
     slug: "karuppu-kavuni-rice",
     name: "Karuppu Kavuni Rice",
     tamilName: "கருப்பு கவுனி அரிசி",
@@ -549,7 +549,7 @@ export const PRODUCTS: Product[] = [
     },
   },
   {
-    id: "sivappu-arisi",
+    id: "40000000-0000-0000-0000-000000000009",
     slug: "sivappu-arisi",
     name: "Sivappu Arisi",
     tamilName: "சிவப்பு அரிசி",
@@ -571,7 +571,7 @@ export const PRODUCTS: Product[] = [
       "Buy Sivappu Arisi, a traditional red rice full of fiber and minerals for healthy everyday South Indian cooking.",
   },
   {
-    id: "malai-then",
+    id: "50000000-0000-0000-0000-000000000001",
     slug: "malai-then",
     name: "Malai Then",
     tamilName: "மலைத் தேன்",

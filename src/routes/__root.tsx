@@ -15,10 +15,13 @@ import { ShopProvider } from "../lib/store";
 import { Toaster } from "@/components/ui/sonner";
 import { SiteFooter } from "@/components/SiteFooter";
 import { WhatsAppSupportButton } from "@/components/WhatsAppSupportButton";
+import { HelmetProvider } from "react-helmet-async";
+import { SEO } from "@/components/SEO";
 
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <SEO title="Page Not Found - SRI VENKETESWARA OIL MILL" description="The page you're looking for doesn't exist." />
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
@@ -121,14 +124,16 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ShopProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <SiteFooter />
-        <WhatsAppSupportButton />
-        <Toaster richColors position="top-right" />
-      </ShopProvider>
-    </QueryClientProvider>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <ShopProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+          <SiteFooter />
+          <WhatsAppSupportButton />
+          <Toaster richColors position="top-right" />
+        </ShopProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
   );
 }

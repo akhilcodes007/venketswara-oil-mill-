@@ -16,7 +16,7 @@ import { PRODUCTS } from "@/lib/products";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Sri Venkateshwara Oil Mill" },
+      { title: "Dashboard — SRI VENKETESWARA OIL MILL" },
       { name: "description", content: "Orders, payment history and live sales analytics." },
     ],
   }),

@@ -17,7 +17,7 @@ import * as z from "zod";
 export const Route = createFileRoute("/checkout")({
   head: () => ({
     meta: [
-      { title: "Checkout — Sri Venkateshwara Oil Mill" },
+      { title: "Checkout — SRI VENKETESWARA OIL MILL" },
       { name: "description", content: "Review your cart and complete your order." },
     ],
   }),
@@ -120,6 +120,9 @@ function Checkout() {
     
     setSubmitting(true);
     
+    console.log("Trace - Checkout State (onSubmit):");
+    console.log("cart items being sent to RPC:", cart.map(c => ({ id: c.id, name: c.name })));
+
     try {
       let addressId = selectedAddressId;
       if (!addressId) {
@@ -181,7 +184,7 @@ function Checkout() {
           key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_xxxx",
           amount: rzpOrderData.amount,
           currency: rzpOrderData.currency,
-          name: "Sri Venkateshwara Oil Mill",
+          name: "SRI VENKETESWARA OIL MILL",
           description: "Premium Cold Pressed Oils",
           order_id: rzpOrderData.id,
           handler: async function (response: any) {

@@ -22,7 +22,14 @@ import { Route as AddressesRouteImport } from './routes/addresses'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as InvoiceOrderIdRouteImport } from './routes/invoice/$orderId'
+import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
+import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
+import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
+import { Route as AdminEmailsRouteImport } from './routes/admin/emails'
+import { Route as AdminDeliveryPartnersRouteImport } from './routes/admin/delivery-partners'
+import { Route as AdminDeliveriesRouteImport } from './routes/admin/deliveries'
+import { Route as AdminCustomersRouteImport } from './routes/admin/customers'
 import { Route as AdminCmsRouteImport } from './routes/admin/cms'
 import { Route as OrderOrderIdTrackingRouteImport } from './routes/order/$orderId.tracking'
 
@@ -91,9 +98,44 @@ const InvoiceOrderIdRoute = InvoiceOrderIdRouteImport.update({
   path: '/invoice/$orderId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminReviewsRoute = AdminReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminProductsRoute = AdminProductsRouteImport.update({
   id: '/products',
   path: '/products',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminOrdersRoute = AdminOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminEmailsRoute = AdminEmailsRouteImport.update({
+  id: '/emails',
+  path: '/emails',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDeliveryPartnersRoute = AdminDeliveryPartnersRouteImport.update({
+  id: '/delivery-partners',
+  path: '/delivery-partners',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDeliveriesRoute = AdminDeliveriesRouteImport.update({
+  id: '/deliveries',
+  path: '/deliveries',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCustomersRoute = AdminCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminCmsRoute = AdminCmsRouteImport.update({
@@ -120,7 +162,14 @@ export interface FileRoutesByFullPath {
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
   '/admin/cms': typeof AdminCmsRoute
+  '/admin/customers': typeof AdminCustomersRoute
+  '/admin/deliveries': typeof AdminDeliveriesRoute
+  '/admin/delivery-partners': typeof AdminDeliveryPartnersRoute
+  '/admin/emails': typeof AdminEmailsRoute
+  '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/invoice/$orderId': typeof InvoiceOrderIdRoute
   '/admin/': typeof AdminIndexRoute
   '/order/$orderId/tracking': typeof OrderOrderIdTrackingRoute
@@ -137,7 +186,14 @@ export interface FileRoutesByTo {
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
   '/admin/cms': typeof AdminCmsRoute
+  '/admin/customers': typeof AdminCustomersRoute
+  '/admin/deliveries': typeof AdminDeliveriesRoute
+  '/admin/delivery-partners': typeof AdminDeliveryPartnersRoute
+  '/admin/emails': typeof AdminEmailsRoute
+  '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/invoice/$orderId': typeof InvoiceOrderIdRoute
   '/admin': typeof AdminIndexRoute
   '/order/$orderId/tracking': typeof OrderOrderIdTrackingRoute
@@ -156,7 +212,14 @@ export interface FileRoutesById {
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
   '/admin/cms': typeof AdminCmsRoute
+  '/admin/customers': typeof AdminCustomersRoute
+  '/admin/deliveries': typeof AdminDeliveriesRoute
+  '/admin/delivery-partners': typeof AdminDeliveryPartnersRoute
+  '/admin/emails': typeof AdminEmailsRoute
+  '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/invoice/$orderId': typeof InvoiceOrderIdRoute
   '/admin/': typeof AdminIndexRoute
   '/order/$orderId/tracking': typeof OrderOrderIdTrackingRoute
@@ -176,7 +239,14 @@ export interface FileRouteTypes {
     | '/shop'
     | '/wishlist'
     | '/admin/cms'
+    | '/admin/customers'
+    | '/admin/deliveries'
+    | '/admin/delivery-partners'
+    | '/admin/emails'
+    | '/admin/orders'
     | '/admin/products'
+    | '/admin/reports'
+    | '/admin/reviews'
     | '/invoice/$orderId'
     | '/admin/'
     | '/order/$orderId/tracking'
@@ -193,7 +263,14 @@ export interface FileRouteTypes {
     | '/shop'
     | '/wishlist'
     | '/admin/cms'
+    | '/admin/customers'
+    | '/admin/deliveries'
+    | '/admin/delivery-partners'
+    | '/admin/emails'
+    | '/admin/orders'
     | '/admin/products'
+    | '/admin/reports'
+    | '/admin/reviews'
     | '/invoice/$orderId'
     | '/admin'
     | '/order/$orderId/tracking'
@@ -211,7 +288,14 @@ export interface FileRouteTypes {
     | '/shop'
     | '/wishlist'
     | '/admin/cms'
+    | '/admin/customers'
+    | '/admin/deliveries'
+    | '/admin/delivery-partners'
+    | '/admin/emails'
+    | '/admin/orders'
     | '/admin/products'
+    | '/admin/reports'
+    | '/admin/reviews'
     | '/invoice/$orderId'
     | '/admin/'
     | '/order/$orderId/tracking'
@@ -326,11 +410,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvoiceOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/reviews': {
+      id: '/admin/reviews'
+      path: '/reviews'
+      fullPath: '/admin/reviews'
+      preLoaderRoute: typeof AdminReviewsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/products': {
       id: '/admin/products'
       path: '/products'
       fullPath: '/admin/products'
       preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/orders': {
+      id: '/admin/orders'
+      path: '/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AdminOrdersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/emails': {
+      id: '/admin/emails'
+      path: '/emails'
+      fullPath: '/admin/emails'
+      preLoaderRoute: typeof AdminEmailsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/delivery-partners': {
+      id: '/admin/delivery-partners'
+      path: '/delivery-partners'
+      fullPath: '/admin/delivery-partners'
+      preLoaderRoute: typeof AdminDeliveryPartnersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/deliveries': {
+      id: '/admin/deliveries'
+      path: '/deliveries'
+      fullPath: '/admin/deliveries'
+      preLoaderRoute: typeof AdminDeliveriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/customers': {
+      id: '/admin/customers'
+      path: '/customers'
+      fullPath: '/admin/customers'
+      preLoaderRoute: typeof AdminCustomersRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/cms': {
@@ -352,13 +485,27 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminCmsRoute: typeof AdminCmsRoute
+  AdminCustomersRoute: typeof AdminCustomersRoute
+  AdminDeliveriesRoute: typeof AdminDeliveriesRoute
+  AdminDeliveryPartnersRoute: typeof AdminDeliveryPartnersRoute
+  AdminEmailsRoute: typeof AdminEmailsRoute
+  AdminOrdersRoute: typeof AdminOrdersRoute
   AdminProductsRoute: typeof AdminProductsRoute
+  AdminReportsRoute: typeof AdminReportsRoute
+  AdminReviewsRoute: typeof AdminReviewsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminCmsRoute: AdminCmsRoute,
+  AdminCustomersRoute: AdminCustomersRoute,
+  AdminDeliveriesRoute: AdminDeliveriesRoute,
+  AdminDeliveryPartnersRoute: AdminDeliveryPartnersRoute,
+  AdminEmailsRoute: AdminEmailsRoute,
+  AdminOrdersRoute: AdminOrdersRoute,
   AdminProductsRoute: AdminProductsRoute,
+  AdminReportsRoute: AdminReportsRoute,
+  AdminReviewsRoute: AdminReviewsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 

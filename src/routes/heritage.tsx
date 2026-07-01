@@ -7,7 +7,7 @@ import { Sparkles, Leaf, Award, Heart, Building2, Compass } from "lucide-react";
 export const Route = createFileRoute("/heritage")({
   head: () => ({
     meta: [
-      { title: "Our Heritage — Sri Venkateshwara Oil Mill" },
+      { title: "Our Heritage — SRI VENKETESWARA OIL MILL" },
       {
         name: "description",
         content:

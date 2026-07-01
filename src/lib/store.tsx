@@ -77,6 +77,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
 
       // Overwrite DB with local cart for guest merge
       if (cart.length > 0) {
+        console.log("Trace - Cart State (sync to DB):", cart.map(c => c.id));
         for (const item of cart) {
           await supabase.from("cart_items").upsert({
             user_id: userId!,
@@ -116,6 +117,8 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   };
 
   const addToCart: ShopState["addToCart"] = (item) => {
+    console.log("Trace - Cart State (addToCart):");
+    console.log("cart.product_id:", item.id);
     setCart((prev) => {
       const idx = prev.findIndex((p) => p.id === item.id && p.size === item.size);
       let nextQty = item.qty;
