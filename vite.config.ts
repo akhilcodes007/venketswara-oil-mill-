@@ -6,10 +6,19 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// Detect deployment environment variables injected by CI/CD providers
+const isVercel = process.env.VERCEL === "1";
+const isNetlify = process.env.NETLIFY === "true";
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  nitro: {
+    // Dynamically set the Nitro adapter based on the deployment host.
+    // If neither is detected, fall back to node-server or cloudflare.
+    preset: isVercel ? "vercel" : isNetlify ? "netlify" : "cloudflare-module",
+  }
 });
