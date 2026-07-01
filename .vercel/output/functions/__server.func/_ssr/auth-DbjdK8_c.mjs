@@ -1,0 +1,42 @@
+import { o as __toESM } from "../_runtime.mjs";
+import { t as supabase } from "./client--XIMi9ld.mjs";
+import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/auth-DbjdK8_c.js
+var import_react = /* @__PURE__ */ __toESM(require_react());
+function useAuth() {
+	const [user, setUser] = (0, import_react.useState)(null);
+	const [isAdmin, setIsAdmin] = (0, import_react.useState)(false);
+	const [loading, setLoading] = (0, import_react.useState)(true);
+	(0, import_react.useEffect)(() => {
+		let mounted = true;
+		async function loadRole(uid) {
+			const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
+			if (!mounted) return;
+			setIsAdmin(!!data?.some((r) => r.role === "admin"));
+		}
+		supabase.auth.getSession().then(({ data }) => {
+			if (!mounted) return;
+			const u = data.session?.user ?? null;
+			setUser(u);
+			if (u) loadRole(u.id);
+			setLoading(false);
+		});
+		const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+			const u = session?.user ?? null;
+			setUser(u);
+			setIsAdmin(false);
+			if (u) loadRole(u.id);
+		});
+		return () => {
+			mounted = false;
+			sub.subscription.unsubscribe();
+		};
+	}, []);
+	return {
+		user,
+		isAdmin,
+		loading
+	};
+}
+//#endregion
+export { useAuth as t };

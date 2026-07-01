@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Heart, ImageOff } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -259,9 +260,6 @@ function ProductCard({ product }: { product: Product }) {
                     toast.error("Please increase the quantity before adding to cart.");
                     return;
                   }
-                  console.log("Trace - Product Page -> Add to Cart:");
-                  console.log("product.id:", product.id);
-                  console.log("product.slug:", product.slug);
                   addToCart({
                     id: product.id,
                     name: product.name,
@@ -283,9 +281,6 @@ function ProductCard({ product }: { product: Product }) {
                     toast.error("Please increase the quantity before buying.");
                     return;
                   }
-                  console.log("Trace - Product Page -> Buy Now:");
-                  console.log("product.id:", product.id);
-                  console.log("product.slug:", product.slug);
                   addToCart({
                     id: product.id,
                     name: product.name,
@@ -318,7 +313,53 @@ function ProductCard({ product }: { product: Product }) {
               {wishlisted ? "Remove from wishlist" : "Save for later"}
             </Button>
           </div>
-          <ProductReviews productId={product.id} />
+          
+          <div className="pt-2">
+            <CollapsibleReviewsWrapper productId={product.id} initialRating={product.rating} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CollapsibleReviewsWrapper({ productId, initialRating }: { productId: string, initialRating?: number }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [summary, setSummary] = useState<{ averageRating: number, totalReviews: number } | null>(null);
+
+  useEffect(() => {
+    supabase.rpc("get_product_reviews_summary", { p_product_id: productId }).then(({ data, error }) => {
+      if (!error && data) {
+        setSummary(data as any);
+      }
+    });
+  }, [productId]);
+
+  const rating = summary?.averageRating || initialRating || 0;
+  const count = summary?.totalReviews || 0;
+
+  return (
+    <div className="w-full">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-[var(--cream)] py-3 text-sm font-semibold text-foreground hover:bg-[var(--gold)]/10 hover:border-[var(--gold)]/30 transition-all duration-300 shadow-sm"
+      >
+        {isExpanded ? (
+          "▲ Hide Customer Reviews"
+        ) : count > 0 ? (
+          `⭐ Customer Reviews (${rating.toFixed(1)} • ${count} Review${count !== 1 ? "s" : ""}) ▼`
+        ) : (
+          "⭐ Customer Reviews (No Reviews Yet) ▼"
+        )}
+      </button>
+
+      <div 
+        className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+          isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <ProductReviews productId={productId} />
         </div>
       </div>
     </div>

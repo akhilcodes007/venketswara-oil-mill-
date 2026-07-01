@@ -48,14 +48,6 @@ function Index() {
             <span className="text-[var(--gold)] tracking-[0.3em] text-[0.7rem] md:text-xs font-semibold">
               ESTD · 1919
             </span>
-            <div className="font-serif leading-[1.15] drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
-              <h2 className="text-white text-2xl md:text-3xl font-bold tracking-wide">
-                SRI VENKETESWARA
-              </h2>
-              <h2 className="text-[var(--gold)] text-xl md:text-2xl font-bold tracking-widest">
-                OIL MILL
-              </h2>
-            </div>
             <span className="text-white/90 tracking-[0.2em] text-[0.6rem] md:text-[0.7rem] mt-1 font-medium drop-shadow-sm">
               100% NATURAL • FARM FRESH
             </span>
@@ -79,10 +71,11 @@ function Index() {
         <section className="flex flex-1 items-center px-6 md:px-16">
           <div className="max-w-2xl space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000 ease-out z-10">
 
-            <h1 className="font-serif text-5xl md:text-7xl leading-[1.05] text-[var(--cream)] animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-150 fill-mode-both">
-              Pure Traditional<br />
-              <span className="text-[var(--gold)]">Cold Pressed</span><br />
-              Oils
+            <h1 className="font-serif text-5xl md:text-7xl leading-[1.05] text-[var(--cream)] animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-150 fill-mode-both drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
+              <span className="block text-3xl md:text-4xl text-white/90 font-medium mb-2">Pure Traditional</span>
+              <span className="block font-bold tracking-wide">SRI VENKETESWARA</span>
+              <span className="block text-[var(--gold)] font-bold tracking-widest">OIL MILL</span>
+              <span className="block text-3xl md:text-4xl text-[var(--gold)]/90 font-medium mt-2">Cold Pressed Oils</span>
             </h1>
 
             <p className="max-w-lg text-[var(--cream)]/90 text-lg md:text-xl font-medium animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-both">
