@@ -55,7 +55,8 @@ function AuthPage() {
       
       setLoading(false);
       if (error) {
-        toast.error(error.message);
+        console.error("Signup error:", error);
+        toast.error(error?.message || "Signup failed. Please try again.");
         return;
       }
       toast.success("Account created successfully. You can now sign in.");
@@ -68,7 +69,8 @@ function AuthPage() {
       
       setLoading(false);
       if (error) {
-        toast.error(error.message);
+        console.error("Signin error:", error);
+        toast.error(error?.message || "Sign in failed. Please try again.");
         return;
       }
       toast.success("Signed in successfully");
